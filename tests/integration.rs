@@ -20,8 +20,9 @@ fn test_health() {
 fn test_version() {
     let output = cli().args(["version"]).output().unwrap();
     assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("pkgVersion"));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("meilisearch-cli v"));
+    assert!(stderr.contains("meilisearch server"));
 }
 
 #[test]
