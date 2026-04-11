@@ -1,6 +1,25 @@
 # Meilisearch CLI
 
-The official Meilisearch CLI — a single Rust binary that covers everything from day-to-day instance management to advanced data operations, with an interactive TUI mode for search and chat.
+The official Meilisearch CLI — a single Rust binary that covers everything from day-to-day instance management to advanced data operations, with an interactive TUI mode for search, chat, and settings.
+
+<table>
+<tr>
+<td><strong>Interactive Search</strong></td>
+<td><strong>Interactive Chat</strong></td>
+</tr>
+<tr>
+<td><img src="assets/interactive-search.png" alt="Interactive search TUI" width="400"></td>
+<td><img src="assets/interactive-chat.png" alt="Interactive chat TUI" width="400"></td>
+</tr>
+<tr>
+<td><strong>Settings Overview</strong></td>
+<td><strong>Settings Editor</strong></td>
+</tr>
+<tr>
+<td><img src="assets/interactive-settings.png" alt="Interactive settings overview" width="400"></td>
+<td><img src="assets/interactive-settings-edit.png" alt="Interactive settings field editor" width="400"></td>
+</tr>
+</table>
 
 ## Installation
 
@@ -97,6 +116,8 @@ meilisearch settings get <uid>
 meilisearch settings update <uid> --file settings.json
 meilisearch settings reset <uid>
 meilisearch settings edit <uid>                     # opens $EDITOR
+meilisearch settings edit <uid> -i                  # interactive TUI
+meilisearch settings edit <uid> synonyms            # edit sub-resource in $EDITOR
 meilisearch settings diff <uid>
 ```
 

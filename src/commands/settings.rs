@@ -71,11 +71,16 @@ pub enum SettingsCommand {
         /// Optional sub-resource (e.g. synonyms, displayed-attributes, typo-tolerance)
         sub_resource: Option<String>,
     },
-    /// Edit settings in $EDITOR
+    /// Edit settings in $EDITOR or interactive TUI
     Edit {
         /// Index UID
         #[arg(value_name = "INDEX_UID")]
         uid: String,
+        /// Optional sub-resource (e.g. synonyms, displayed-attributes, typo-tolerance)
+        sub_resource: Option<String>,
+        /// Interactive TUI mode
+        #[arg(short, long)]
+        interactive: bool,
     },
     /// Show diff of current vs default settings
     Diff {
@@ -120,8 +125,16 @@ pub async fn run(cli: &Cli, cmd: &SettingsCommand) -> Result<()> {
             };
             print_json(&result, cli.raw);
         }
-        SettingsCommand::Edit { uid } => {
-            run_editor(cli, uid).await?;
+        SettingsCommand::Edit {
+            uid,
+            sub_resource,
+            interactive,
+        } => {
+            if *interactive {
+                let client = build_client(cli)?;
+                return crate::tui::settings::run_interactive_settings(client, uid).await;
+            }
+            run_editor(cli, uid, sub_resource.as_deref()).await?;
         }
         SettingsCommand::Diff { uid } => {
             let settings = client.get_settings(uid).await?;
@@ -132,12 +145,21 @@ pub async fn run(cli: &Cli, cmd: &SettingsCommand) -> Result<()> {
     Ok(())
 }
 
-async fn run_editor(cli: &Cli, uid: &str) -> Result<()> {
+async fn run_editor(cli: &Cli, uid: &str, sub_resource: Option<&str>) -> Result<()> {
+    if let Some(sub) = sub_resource {
+        validate_sub_resource(sub)?;
+    }
+
     let client = build_client(cli)?;
-    let settings = client.get_settings(uid).await?;
+    let settings = if let Some(sub) = sub_resource {
+        client.get_setting(uid, sub).await?
+    } else {
+        client.get_settings(uid).await?
+    };
     let pretty = serde_json::to_string_pretty(&settings)?;
 
-    let tmp_path = std::env::temp_dir().join(format!("meilisearch-settings-{uid}.json"));
+    let file_label = sub_resource.unwrap_or("settings");
+    let tmp_path = std::env::temp_dir().join(format!("meilisearch-{file_label}-{uid}.json"));
     std::fs::write(&tmp_path, &pretty)?;
 
     let editor = std::env::var("EDITOR")
@@ -175,7 +197,11 @@ async fn run_editor(cli: &Cli, uid: &str) -> Result<()> {
     // Show diff
     println!("Changes detected. Applying...");
 
-    let result = client.update_settings(uid, &new_settings).await?;
+    let result = if let Some(sub) = sub_resource {
+        client.update_setting(uid, sub, &new_settings).await?
+    } else {
+        client.update_settings(uid, &new_settings).await?
+    };
     print_json(&result, cli.raw);
 
     // Wait for task

@@ -1,6 +1,6 @@
 [package]
 name = "meilisearch-cli"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "The official Meilisearch CLI"
 license = "MIT"
@@ -24,7 +24,7 @@ indicatif = "0.18"
 ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
 reqwest = { version = "0.13", features = ["json", "stream", "multipart"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
 tar = "0.4"
 tempfile = "3"
 tokio = { version = "1", features = ["full"] }

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0] - 2026-04-11
+
+### Added
+
+- **Interactive settings TUI**: `meilisearch settings edit <index> -i` opens a full TUI for managing all 21 settings sub-resources with checkbox editors, reordering, string list editing, select menus, and number inputs
+- **Sub-resource editing**: `meilisearch settings edit <index> synonyms` opens `$EDITOR` on a single sub-resource instead of the full settings blob
+- **CLI reference documentation**: comprehensive `docs/reference.md` covering all 24 commands, 42+ subcommands, every argument, flag, and default value
+- **README screenshots**: interactive search, chat, settings overview, and settings editor screenshots
+
+### Fixed
+
+- **JSON field ordering**: search results and settings now preserve server field order instead of sorting alphabetically (serde_json `preserve_order` feature)
+
 ## [0.2.0] - 2026-04-11
 
 ### Added
