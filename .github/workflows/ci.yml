@@ -38,4 +38,4 @@ jobs:
             sleep 1
           done
 
-      - run: cargo test
+      - run: cargo test -- --test-threads=1
