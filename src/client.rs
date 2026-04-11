@@ -166,11 +166,7 @@ impl MeiliClient {
 
     // ── Indexes (update) ────────────────────────────────────────────
 
-    pub async fn update_index(
-        &self,
-        uid: &str,
-        primary_key: Option<&str>,
-    ) -> Result<Value> {
+    pub async fn update_index(&self, uid: &str, primary_key: Option<&str>) -> Result<Value> {
         let mut body = serde_json::json!({});
         if let Some(pk) = primary_key {
             body["primaryKey"] = serde_json::json!(pk);

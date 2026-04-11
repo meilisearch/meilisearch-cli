@@ -58,9 +58,7 @@ pub async fn run(cli: &Cli, cmd: &IndexCommand) -> Result<()> {
             print_json(&result, cli.raw);
         }
         IndexCommand::Update { uid, primary_key } => {
-            let result = client
-                .update_index(uid, primary_key.as_deref())
-                .await?;
+            let result = client.update_index(uid, primary_key.as_deref()).await?;
             print_json(&result, cli.raw);
         }
         IndexCommand::Swap { index_a, index_b } => {

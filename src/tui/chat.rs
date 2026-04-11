@@ -73,17 +73,15 @@ fn handle_slash_command(state: &mut ChatState, input: &str) -> bool {
     let arg = parts.get(1).map(|s| s.trim());
 
     let response = match cmd {
-        "/help" => {
-            "/model <name>     — change LLM model (current: MODEL)\n\
+        "/help" => "/model <name>     — change LLM model (current: MODEL)\n\
              /workspace <name> — change chat workspace (current: WORKSPACE)\n\
              /sources           — toggle source display\n\
              /clear             — clear all history and logs\n\
              /compact           — summarize conversation into a fresh start\n\
              /log               — show raw SSE log\n\
              /help              — show this help"
-                .replace("MODEL", &state.model)
-                .replace("WORKSPACE", &state.workspace)
-        }
+            .replace("MODEL", &state.model)
+            .replace("WORKSPACE", &state.workspace),
         "/model" => {
             if let Some(name) = arg {
                 state.model = name.to_string();
@@ -155,7 +153,8 @@ async fn stream_sse(resp: reqwest::Response, tx: mpsc::UnboundedSender<SseEvent>
     let mut stream = resp.bytes_stream();
     let mut buffer = String::new();
     // Accumulate tool call arguments by index
-    let mut tool_args_acc: std::collections::HashMap<u64, String> = std::collections::HashMap::new();
+    let mut tool_args_acc: std::collections::HashMap<u64, String> =
+        std::collections::HashMap::new();
     let mut tool_names: std::collections::HashMap<u64, String> = std::collections::HashMap::new();
 
     while let Some(chunk) = stream.next().await {
@@ -198,15 +197,10 @@ async fn stream_sse(resp: reqwest::Response, tx: mpsc::UnboundedSender<SseEvent>
                             if let Some(name) = call["function"]["name"].as_str() {
                                 tool_names.insert(idx, name.to_string());
                                 let _ = tx.send(SseEvent::ToolCall(name.to_string()));
-                                let _ = tx.send(SseEvent::RawLog(format!(
-                                    "  [tool_call] {name}"
-                                )));
+                                let _ = tx.send(SseEvent::RawLog(format!("  [tool_call] {name}")));
                             }
                             if let Some(args) = call["function"]["arguments"].as_str() {
-                                tool_args_acc
-                                    .entry(idx)
-                                    .or_default()
-                                    .push_str(args);
+                                tool_args_acc.entry(idx).or_default().push_str(args);
                             }
                         }
                     }
@@ -214,13 +208,10 @@ async fn stream_sse(resp: reqwest::Response, tx: mpsc::UnboundedSender<SseEvent>
                     // Check finish_reason to parse accumulated tool args
                     if json["choices"][0]["finish_reason"].as_str() == Some("tool_calls") {
                         for (idx, full_args) in &tool_args_acc {
-                            if let Ok(parsed) =
-                                serde_json::from_str::<serde_json::Value>(full_args)
+                            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(full_args)
                             {
-                                let name = tool_names
-                                    .get(idx)
-                                    .map(|s| s.as_str())
-                                    .unwrap_or("unknown");
+                                let name =
+                                    tool_names.get(idx).map(|s| s.as_str()).unwrap_or("unknown");
                                 let _ = tx.send(SseEvent::RawLog(format!(
                                     "  [tool_args] {}",
                                     serde_json::to_string(&parsed).unwrap_or_default()
@@ -399,239 +390,229 @@ pub async fn run_interactive_chat(
         if event::poll(Duration::from_millis(50))?
             && let Event::Key(key) = event::read()?
         {
-                if state.show_log {
-                    match key.code {
-                        KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                            state.show_log = false;
-                        }
-                        KeyCode::Esc => {
-                            state.show_log = false;
-                        }
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            state.log_scroll = state.log_scroll.saturating_sub(1);
-                        }
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            state.log_scroll = state.log_scroll.saturating_add(1);
-                        }
-                        KeyCode::Char('G') => {
-                            state.log_scroll = state.raw_log.len().saturating_sub(1) as u16;
-                        }
-                        KeyCode::Char('g') => {
-                            state.log_scroll = 0;
-                        }
-                        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                            break
-                        }
-                        _ => {}
-                    }
-                    continue;
-                }
-
+            if state.show_log {
                 match key.code {
-                    KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
                     KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        state.show_log = true;
+                        state.show_log = false;
+                    }
+                    KeyCode::Esc => {
+                        state.show_log = false;
+                    }
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        state.log_scroll = state.log_scroll.saturating_sub(1);
+                    }
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        state.log_scroll = state.log_scroll.saturating_add(1);
+                    }
+                    KeyCode::Char('G') => {
                         state.log_scroll = state.raw_log.len().saturating_sub(1) as u16;
                     }
-                    KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        state.show_sources = !state.show_sources;
+                    KeyCode::Char('g') => {
+                        state.log_scroll = 0;
                     }
-                    KeyCode::Esc => break,
-                    KeyCode::Enter if !state.loading => {
-                        if !state.input.is_empty() {
-                            // Push to history
-                            state.input_history.push(state.input.clone());
-                            state.history_pos = state.input_history.len();
-                            state.input_stash.clear();
+                    KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
+                    _ => {}
+                }
+                continue;
+            }
 
-                            // Handle slash commands
-                            if state.input.starts_with('/') {
-                                let cmd = state.input.clone();
-                                state.input.clear();
-                                let needs_compact = handle_slash_command(&mut state, &cmd);
-                                if needs_compact {
-                                    // Build compaction prompt from conversation
-                                    let mut convo_text = String::new();
-                                    for m in &state.messages {
-                                        if m.role == "user" || m.role == "assistant" {
-                                            convo_text.push_str(&format!(
-                                                "{}: {}\n\n",
-                                                m.role, m.content
-                                            ));
-                                        }
-                                    }
+            match key.code {
+                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
+                KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    state.show_log = true;
+                    state.log_scroll = state.raw_log.len().saturating_sub(1) as u16;
+                }
+                KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    state.show_sources = !state.show_sources;
+                }
+                KeyCode::Esc => break,
+                KeyCode::Enter if !state.loading => {
+                    if !state.input.is_empty() {
+                        // Push to history
+                        state.input_history.push(state.input.clone());
+                        state.history_pos = state.input_history.len();
+                        state.input_stash.clear();
 
-                                    state.messages.push(ChatMessage {
-                                        role: "system".to_string(),
-                                        content: "Compacting conversation...".to_string(),
-                                        sources: Vec::new(),
-                                    });
-                                    state.loading = true;
-                                    state.compacting = true;
-                                    state.streaming_content.clear();
-                                    state.streaming_sources.clear();
-
-                                    let compact_messages = vec![serde_json::json!({
-                                        "role": "user",
-                                        "content": format!(
-                                            "Summarize the following conversation into a concise context paragraph \
-                                             that preserves all important facts, decisions, and context. \
-                                             Write it as a system-style briefing so the conversation can \
-                                             continue from this summary.\n\n{convo_text}"
-                                        )
-                                    })];
-
-                                    let body = serde_json::json!({
-                                        "model": &state.model,
-                                        "messages": compact_messages,
-                                        "stream": true
-                                    });
-
-                                    state.raw_log.push(format!(
-                                        ">>> COMPACT REQUEST: {}",
-                                        serde_json::to_string(&body).unwrap_or_default()
-                                    ));
-
-                                    let new_tx = tx.clone();
-                                    let client_clone = client.clone();
-                                    let ws = state.workspace.clone();
-                                    active_tx = Some(new_tx.clone());
-                                    tokio::spawn(async move {
-                                        match client_clone.chat_completions(&ws, &body).await {
-                                            Ok(resp) => {
-                                                let status = resp.status();
-                                                let _ = new_tx.send(SseEvent::RawLog(format!(
-                                                    "<<< COMPACT HTTP {status}"
-                                                )));
-                                                if !status.is_success() {
-                                                    let text =
-                                                        resp.text().await.unwrap_or_default();
-                                                    let _ = new_tx.send(SseEvent::Error(format!(
-                                                        "HTTP {status}: {text}"
-                                                    )));
-                                                } else {
-                                                    stream_sse(resp, new_tx).await;
-                                                }
-                                            }
-                                            Err(e) => {
-                                                let _ = new_tx.send(SseEvent::Error(e.to_string()));
-                                            }
-                                        }
-                                    });
-                                    state.auto_scroll = true;
-                                }
-                                continue;
-                            }
-
-                            let user_msg = state.input.clone();
-                            state.messages.push(ChatMessage {
-                                role: "user".to_string(),
-                                content: user_msg.clone(),
-                                sources: Vec::new(),
-                            });
+                        // Handle slash commands
+                        if state.input.starts_with('/') {
+                            let cmd = state.input.clone();
                             state.input.clear();
-                            state.loading = true;
-                            state.streaming_content.clear();
-                            state.streaming_sources.clear();
-
-                            state.raw_log.push(format!(">>> USER: {user_msg}"));
-
-                            let api_messages: Vec<serde_json::Value> = state
-                                .messages
-                                .iter()
-                                .filter(|m| m.role == "user" || m.role == "assistant")
-                                .map(|m| {
-                                    serde_json::json!({
-                                        "role": m.role,
-                                        "content": m.content
-                                    })
-                                })
-                                .collect();
-
-                            let body = serde_json::json!({
-                                "model": &state.model,
-                                "messages": api_messages,
-                                "stream": true
-                            });
-
-                            state.raw_log.push(format!(
-                                ">>> REQUEST: {}",
-                                serde_json::to_string(&body).unwrap_or_default()
-                            ));
-
-                            // Spawn background SSE reader
-                            let new_tx = tx.clone();
-                            let client_clone = client.clone();
-                            let ws = state.workspace.clone();
-                            active_tx = Some(new_tx.clone());
-                            tokio::spawn(async move {
-                                match client_clone.chat_completions(&ws, &body).await {
-                                    Ok(resp) => {
-                                        let status = resp.status();
-                                        let _ = new_tx.send(SseEvent::RawLog(format!(
-                                            "<<< HTTP {status}"
-                                        )));
-                                        if !status.is_success() {
-                                            let text =
-                                                resp.text().await.unwrap_or_default();
-                                            let _ = new_tx.send(SseEvent::RawLog(format!(
-                                                "<<< ERROR: {text}"
-                                            )));
-                                            let _ = new_tx.send(SseEvent::Error(format!(
-                                                "HTTP {status}: {text}"
-                                            )));
-                                        } else {
-                                            stream_sse(resp, new_tx).await;
-                                        }
-                                    }
-                                    Err(e) => {
-                                        let _ = new_tx.send(SseEvent::Error(e.to_string()));
+                            let needs_compact = handle_slash_command(&mut state, &cmd);
+                            if needs_compact {
+                                // Build compaction prompt from conversation
+                                let mut convo_text = String::new();
+                                for m in &state.messages {
+                                    if m.role == "user" || m.role == "assistant" {
+                                        convo_text
+                                            .push_str(&format!("{}: {}\n\n", m.role, m.content));
                                     }
                                 }
-                            });
 
-                            state.auto_scroll = true;
-                        }
-                    }
-                    KeyCode::Char(c) if !state.loading => {
-                        state.input.push(c);
-                    }
-                    KeyCode::Backspace if !state.loading => {
-                        state.input.pop();
-                    }
-                    KeyCode::Up if !state.loading => {
-                        if !state.input_history.is_empty()
-                            && state.history_pos > 0
-                        {
-                            // First time pressing up: stash current input
-                            if state.history_pos == state.input_history.len() {
-                                state.input_stash = state.input.clone();
+                                state.messages.push(ChatMessage {
+                                    role: "system".to_string(),
+                                    content: "Compacting conversation...".to_string(),
+                                    sources: Vec::new(),
+                                });
+                                state.loading = true;
+                                state.compacting = true;
+                                state.streaming_content.clear();
+                                state.streaming_sources.clear();
+
+                                let compact_messages = vec![serde_json::json!({
+                                    "role": "user",
+                                    "content": format!(
+                                        "Summarize the following conversation into a concise context paragraph \
+                                         that preserves all important facts, decisions, and context. \
+                                         Write it as a system-style briefing so the conversation can \
+                                         continue from this summary.\n\n{convo_text}"
+                                    )
+                                })];
+
+                                let body = serde_json::json!({
+                                    "model": &state.model,
+                                    "messages": compact_messages,
+                                    "stream": true
+                                });
+
+                                state.raw_log.push(format!(
+                                    ">>> COMPACT REQUEST: {}",
+                                    serde_json::to_string(&body).unwrap_or_default()
+                                ));
+
+                                let new_tx = tx.clone();
+                                let client_clone = client.clone();
+                                let ws = state.workspace.clone();
+                                active_tx = Some(new_tx.clone());
+                                tokio::spawn(async move {
+                                    match client_clone.chat_completions(&ws, &body).await {
+                                        Ok(resp) => {
+                                            let status = resp.status();
+                                            let _ = new_tx.send(SseEvent::RawLog(format!(
+                                                "<<< COMPACT HTTP {status}"
+                                            )));
+                                            if !status.is_success() {
+                                                let text = resp.text().await.unwrap_or_default();
+                                                let _ = new_tx.send(SseEvent::Error(format!(
+                                                    "HTTP {status}: {text}"
+                                                )));
+                                            } else {
+                                                stream_sse(resp, new_tx).await;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            let _ = new_tx.send(SseEvent::Error(e.to_string()));
+                                        }
+                                    }
+                                });
+                                state.auto_scroll = true;
                             }
-                            state.history_pos -= 1;
+                            continue;
+                        }
+
+                        let user_msg = state.input.clone();
+                        state.messages.push(ChatMessage {
+                            role: "user".to_string(),
+                            content: user_msg.clone(),
+                            sources: Vec::new(),
+                        });
+                        state.input.clear();
+                        state.loading = true;
+                        state.streaming_content.clear();
+                        state.streaming_sources.clear();
+
+                        state.raw_log.push(format!(">>> USER: {user_msg}"));
+
+                        let api_messages: Vec<serde_json::Value> = state
+                            .messages
+                            .iter()
+                            .filter(|m| m.role == "user" || m.role == "assistant")
+                            .map(|m| {
+                                serde_json::json!({
+                                    "role": m.role,
+                                    "content": m.content
+                                })
+                            })
+                            .collect();
+
+                        let body = serde_json::json!({
+                            "model": &state.model,
+                            "messages": api_messages,
+                            "stream": true
+                        });
+
+                        state.raw_log.push(format!(
+                            ">>> REQUEST: {}",
+                            serde_json::to_string(&body).unwrap_or_default()
+                        ));
+
+                        // Spawn background SSE reader
+                        let new_tx = tx.clone();
+                        let client_clone = client.clone();
+                        let ws = state.workspace.clone();
+                        active_tx = Some(new_tx.clone());
+                        tokio::spawn(async move {
+                            match client_clone.chat_completions(&ws, &body).await {
+                                Ok(resp) => {
+                                    let status = resp.status();
+                                    let _ =
+                                        new_tx.send(SseEvent::RawLog(format!("<<< HTTP {status}")));
+                                    if !status.is_success() {
+                                        let text = resp.text().await.unwrap_or_default();
+                                        let _ = new_tx
+                                            .send(SseEvent::RawLog(format!("<<< ERROR: {text}")));
+                                        let _ = new_tx.send(SseEvent::Error(format!(
+                                            "HTTP {status}: {text}"
+                                        )));
+                                    } else {
+                                        stream_sse(resp, new_tx).await;
+                                    }
+                                }
+                                Err(e) => {
+                                    let _ = new_tx.send(SseEvent::Error(e.to_string()));
+                                }
+                            }
+                        });
+
+                        state.auto_scroll = true;
+                    }
+                }
+                KeyCode::Char(c) if !state.loading => {
+                    state.input.push(c);
+                }
+                KeyCode::Backspace if !state.loading => {
+                    state.input.pop();
+                }
+                KeyCode::Up if !state.loading => {
+                    if !state.input_history.is_empty() && state.history_pos > 0 {
+                        // First time pressing up: stash current input
+                        if state.history_pos == state.input_history.len() {
+                            state.input_stash = state.input.clone();
+                        }
+                        state.history_pos -= 1;
+                        state.input = state.input_history[state.history_pos].clone();
+                    }
+                }
+                KeyCode::Down if !state.loading => {
+                    if state.history_pos < state.input_history.len() {
+                        state.history_pos += 1;
+                        if state.history_pos == state.input_history.len() {
+                            // Restore stashed input
+                            state.input = state.input_stash.clone();
+                        } else {
                             state.input = state.input_history[state.history_pos].clone();
                         }
                     }
-                    KeyCode::Down if !state.loading => {
-                        if state.history_pos < state.input_history.len() {
-                            state.history_pos += 1;
-                            if state.history_pos == state.input_history.len() {
-                                // Restore stashed input
-                                state.input = state.input_stash.clone();
-                            } else {
-                                state.input = state.input_history[state.history_pos].clone();
-                            }
-                        }
-                    }
-                    KeyCode::Up => {
-                        state.auto_scroll = false;
-                        state.scroll = state.scroll.saturating_sub(1);
-                    }
-                    KeyCode::Down => {
-                        state.auto_scroll = false;
-                        state.scroll = state.scroll.saturating_add(1);
-                    }
-                    _ => {}
                 }
+                KeyCode::Up => {
+                    state.auto_scroll = false;
+                    state.scroll = state.scroll.saturating_sub(1);
+                }
+                KeyCode::Down => {
+                    state.auto_scroll = false;
+                    state.scroll = state.scroll.saturating_add(1);
+                }
+                _ => {}
+            }
         }
     }
 
@@ -770,7 +751,10 @@ fn render_message<'a>(lines: &mut Vec<Line<'a>>, msg: &'a ChatMessage, show_sour
             ]));
         } else {
             let indent = " ".repeat(prefix.len());
-            lines.push(Line::from(vec![Span::raw(indent), Span::raw(*content_line)]));
+            lines.push(Line::from(vec![
+                Span::raw(indent),
+                Span::raw(*content_line),
+            ]));
         }
     }
 
