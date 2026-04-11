@@ -8,6 +8,7 @@ use super::{Cli, build_client, print_json, read_json_input};
 #[derive(Args)]
 pub struct SearchArgs {
     /// Index UID
+    #[arg(value_name = "INDEX_UID")]
     pub uid: String,
 
     /// Search query
@@ -93,6 +94,7 @@ pub async fn run_multi_search(cli: &Cli, args: &MultiSearchArgs) -> Result<()> {
 #[derive(Args)]
 pub struct FacetSearchArgs {
     /// Index UID
+    #[arg(value_name = "INDEX_UID")]
     pub uid: String,
 
     /// Facet name to search
@@ -126,9 +128,11 @@ pub async fn run_facet_search(cli: &Cli, args: &FacetSearchArgs) -> Result<()> {
 #[derive(Args)]
 pub struct SimilarArgs {
     /// Index UID
+    #[arg(value_name = "INDEX_UID")]
     pub uid: String,
 
     /// Document ID to find similar documents for
+    #[arg(value_name = "DOCUMENT_ID")]
     pub id: String,
 
     /// Maximum number of results

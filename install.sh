@@ -25,6 +25,14 @@ detect_platform() {
     echo "${arch}-${os}"
 }
 
+detect_shell() {
+    shell_name="$(basename "${SHELL:-}")"
+    case "$shell_name" in
+        bash|zsh|fish) echo "$shell_name" ;;
+        *) echo "" ;;
+    esac
+}
+
 download() {
     url="$1"
     dest="$2"
@@ -36,6 +44,46 @@ download() {
         echo "Error: curl or wget is required" >&2
         exit 1
     fi
+}
+
+install_completions() {
+    bin="$1"
+    shell="$(detect_shell)"
+
+    if [ -z "$shell" ]; then
+        return
+    fi
+
+    echo "Installing ${shell} completions..."
+
+    case "$shell" in
+        zsh)
+            comp_dir="${HOME}/.zfunc"
+            mkdir -p "$comp_dir"
+            "$bin" completions zsh > "${comp_dir}/_meilisearch"
+
+            # Ensure fpath and compinit are set up in .zshrc
+            zshrc="${HOME}/.zshrc"
+            if [ -f "$zshrc" ]; then
+                if ! grep -q '\.zfunc' "$zshrc" 2>/dev/null; then
+                    printf '\n# Meilisearch CLI completions\nfpath=(~/.zfunc $fpath)\nautoload -Uz compinit && compinit\n' >> "$zshrc"
+                fi
+            fi
+            echo "  Installed to ${comp_dir}/_meilisearch"
+            ;;
+        bash)
+            comp_dir="${HOME}/.local/share/bash-completion/completions"
+            mkdir -p "$comp_dir"
+            "$bin" completions bash > "${comp_dir}/meilisearch"
+            echo "  Installed to ${comp_dir}/meilisearch"
+            ;;
+        fish)
+            comp_dir="${HOME}/.config/fish/completions"
+            mkdir -p "$comp_dir"
+            "$bin" completions fish > "${comp_dir}/meilisearch.fish"
+            echo "  Installed to ${comp_dir}/meilisearch.fish"
+            ;;
+    esac
 }
 
 main() {
@@ -72,11 +120,16 @@ main() {
         sudo mv "$bin_path" "${INSTALL_DIR}/${BINARY}"
     fi
 
-    echo ""
     echo "Installed ${BINARY} to ${INSTALL_DIR}/${BINARY}"
-    "${INSTALL_DIR}/${BINARY}" --version 2>/dev/null || true
+
+    # Install shell completions
+    install_completions "${INSTALL_DIR}/${BINARY}"
+
     echo ""
     echo "Run 'meilisearch --help' to get started."
+    if [ "$(detect_shell)" = "zsh" ]; then
+        echo "Restart your shell or run 'source ~/.zshrc' to enable completions."
+    fi
 }
 
 main "$@"

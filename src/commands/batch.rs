@@ -21,7 +21,11 @@ pub enum BatchCommand {
         types: Option<String>,
     },
     /// Get a batch by UID
-    Get { uid: u64 },
+    Get {
+        /// Batch UID
+        #[arg(value_name = "BATCH_UID")]
+        uid: u64,
+    },
 }
 
 pub async fn run(cli: &Cli, cmd: &BatchCommand) -> Result<()> {

@@ -9,6 +9,8 @@ use super::{Cli, build_client, print_json};
 pub enum DocumentCommand {
     /// Add or replace documents
     Add {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         #[arg(long)]
         file: Option<PathBuf>,
@@ -17,6 +19,8 @@ pub enum DocumentCommand {
     },
     /// Add or update documents (partial update)
     Update {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         #[arg(long)]
         file: Option<PathBuf>,
@@ -24,9 +28,18 @@ pub enum DocumentCommand {
         primary_key: Option<String>,
     },
     /// Get a single document
-    Get { uid: String, id: String },
+    Get {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
+        uid: String,
+        /// Document ID
+        #[arg(value_name = "DOCUMENT_ID")]
+        id: String,
+    },
     /// List documents
     List {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         #[arg(long)]
         offset: Option<u64>,
@@ -37,6 +50,8 @@ pub enum DocumentCommand {
     },
     /// Fetch documents with POST (supports filter)
     Fetch {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         #[arg(long)]
         filter: Option<String>,
@@ -48,17 +63,32 @@ pub enum DocumentCommand {
         fields: Option<Vec<String>>,
     },
     /// Delete a single document
-    Delete { uid: String, id: String },
+    Delete {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
+        uid: String,
+        /// Document ID
+        #[arg(value_name = "DOCUMENT_ID")]
+        id: String,
+    },
     /// Delete all documents
-    DeleteAll { uid: String },
+    DeleteAll {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
+        uid: String,
+    },
     /// Delete documents matching a filter
     DeleteByFilter {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         /// Filter expression (e.g. "genre = horror")
         filter: String,
     },
     /// Delete documents by batch of IDs
     DeleteBatch {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         /// Comma-separated document IDs
         #[arg(value_delimiter = ',')]
@@ -66,6 +96,8 @@ pub enum DocumentCommand {
     },
     /// Edit documents by function
     Edit {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         /// JavaScript function body
         function: String,

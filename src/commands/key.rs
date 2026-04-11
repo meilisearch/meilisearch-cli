@@ -8,7 +8,11 @@ pub enum KeyCommand {
     /// List all API keys
     List,
     /// Get an API key
-    Get { key: String },
+    Get {
+        /// API key or UID
+        #[arg(value_name = "API_KEY")]
+        key: String,
+    },
     /// Create an API key
     Create {
         #[arg(long, value_delimiter = ',')]
@@ -22,6 +26,8 @@ pub enum KeyCommand {
     },
     /// Update an API key
     Update {
+        /// API key or UID
+        #[arg(value_name = "API_KEY")]
         key: String,
         #[arg(long)]
         description: Option<String>,
@@ -29,7 +35,11 @@ pub enum KeyCommand {
         name: Option<String>,
     },
     /// Delete an API key
-    Delete { key: String },
+    Delete {
+        /// API key or UID
+        #[arg(value_name = "API_KEY")]
+        key: String,
+    },
 }
 
 pub async fn run(cli: &Cli, cmd: &KeyCommand) -> Result<()> {

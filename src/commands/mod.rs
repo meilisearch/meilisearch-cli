@@ -16,13 +16,62 @@ mod settings;
 mod task;
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 
 use crate::client::MeiliClient;
 use crate::config::Config;
 
 #[derive(Parser)]
-#[command(name = "meilisearch", about = "The official Meilisearch CLI", version)]
+#[command(
+    name = "meilisearch",
+    about = "The official Meilisearch CLI",
+    version,
+    after_help = "",
+    override_usage = "meilisearch [OPTIONS] <COMMAND>",
+    help_template = "\
+{about}
+
+{usage-heading} {usage}
+
+{tab}Data:
+{tab}  index         Manage indexes
+{tab}  document      Manage documents
+{tab}  settings      Manage settings
+{tab}  import        Import documents from file
+
+{tab}Search:
+{tab}  search        Search an index
+{tab}  multi-search  Search across multiple indexes
+{tab}  facet-search  Perform a facet search
+{tab}  similar       Find similar documents
+{tab}  chat          Interactive chat with your data
+
+{tab}Operations:
+{tab}  clone         Clone an index
+{tab}  promote       Promote indexes between projects
+{tab}  dump          Create a dump
+{tab}  task          Manage tasks
+{tab}  batch         Manage batches
+
+{tab}Server:
+{tab}  health        Check server health
+{tab}  version       Show server version
+{tab}  stats         Show server stats
+{tab}  metrics       Show Prometheus metrics
+{tab}  key           Manage API keys
+{tab}  log           Manage logs
+{tab}  network       Manage network configuration
+{tab}  experimental  Manage experimental features
+
+{tab}Configuration:
+{tab}  project       Manage project credentials
+{tab}  local         Manage local Meilisearch instance
+{tab}  self-update   Update the CLI to the latest version
+{tab}  completions   Generate shell completions
+
+Options:
+{options}"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,
@@ -46,6 +95,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    // ── Data ─────────────────────────────────────────────────
     /// Manage indexes
     Index {
         #[command(subcommand)]
@@ -56,6 +106,15 @@ pub enum Command {
         #[command(subcommand)]
         cmd: document::DocumentCommand,
     },
+    /// Manage settings
+    Settings {
+        #[command(subcommand)]
+        cmd: settings::SettingsCommand,
+    },
+    /// Import documents from file
+    Import(import::ImportArgs),
+
+    // ── Search ───────────────────────────────────────────────
     /// Search an index
     Search(search::SearchArgs),
     /// Search across multiple indexes
@@ -64,10 +123,18 @@ pub enum Command {
     FacetSearch(search::FacetSearchArgs),
     /// Find similar documents
     Similar(search::SimilarArgs),
-    /// Manage settings
-    Settings {
+    /// Interactive chat with your data
+    Chat(chat::ChatArgs),
+
+    // ── Operations ───────────────────────────────────────────
+    /// Clone an index
+    Clone(clone::CloneArgs),
+    /// Promote indexes from one project to another
+    Promote(promote::PromoteArgs),
+    /// Create a dump
+    Dump {
         #[command(subcommand)]
-        cmd: settings::SettingsCommand,
+        cmd: dump::DumpCommand,
     },
     /// Manage tasks
     Task {
@@ -79,31 +146,20 @@ pub enum Command {
         #[command(subcommand)]
         cmd: batch::BatchCommand,
     },
+
+    // ── Server ───────────────────────────────────────────────
+    /// Check server health
+    Health,
+    /// Show server version
+    Version,
+    /// Show server stats
+    Stats,
+    /// Show Prometheus metrics
+    Metrics,
     /// Manage API keys
     Key {
         #[command(subcommand)]
         cmd: key::KeyCommand,
-    },
-    /// Manage project credentials
-    Project {
-        #[command(subcommand)]
-        cmd: project::ProjectCommand,
-    },
-    /// Manage local Meilisearch instance
-    Local {
-        #[command(subcommand)]
-        cmd: local::LocalCommand,
-    },
-    /// Import documents from file
-    Import(import::ImportArgs),
-    /// Clone an index
-    Clone(clone::CloneArgs),
-    /// Promote indexes from one project to another
-    Promote(promote::PromoteArgs),
-    /// Create a dump
-    Dump {
-        #[command(subcommand)]
-        cmd: dump::DumpCommand,
     },
     /// Manage logs
     Log {
@@ -120,22 +176,30 @@ pub enum Command {
         #[command(subcommand)]
         cmd: experimental::ExperimentalCommand,
     },
-    /// Check server health
-    Health,
-    /// Show server version
-    Version,
-    /// Show server stats
-    Stats,
-    /// Show Prometheus metrics
-    Metrics,
-    /// Interactive chat
-    Chat(chat::ChatArgs),
+
+    // ── Configuration ────────────────────────────────────────
+    /// Manage project credentials
+    Project {
+        #[command(subcommand)]
+        cmd: project::ProjectCommand,
+    },
+    /// Manage local Meilisearch instance
+    Local {
+        #[command(subcommand)]
+        cmd: local::LocalCommand,
+    },
     /// Update the CLI to the latest version
     #[command(name = "self-update")]
     SelfUpdate {
         /// Force re-download even if already up to date
         #[arg(long)]
         force: bool,
+    },
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
     },
 }
 
@@ -227,5 +291,14 @@ pub async fn run(cli: Cli) -> Result<()> {
         Command::Experimental { cmd } => experimental::run(&cli, cmd).await,
         Command::Chat(args) => chat::run(&cli, args).await,
         Command::SelfUpdate { force } => self_update::run(*force).await,
+        Command::Completions { shell } => {
+            clap_complete::generate(
+                *shell,
+                &mut Cli::command(),
+                "meilisearch",
+                &mut std::io::stdout(),
+            );
+            Ok(())
+        }
     }
 }

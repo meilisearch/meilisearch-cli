@@ -46,12 +46,16 @@ fn validate_sub_resource(sub: &str) -> Result<()> {
 pub enum SettingsCommand {
     /// Get current settings (all or a specific sub-resource)
     Get {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         /// Optional sub-resource (e.g. synonyms, displayed-attributes, typo-tolerance)
         sub_resource: Option<String>,
     },
     /// Update settings from JSON file or stdin (all or a specific sub-resource)
     Update {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         /// Optional sub-resource (e.g. synonyms, displayed-attributes, typo-tolerance)
         sub_resource: Option<String>,
@@ -61,14 +65,24 @@ pub enum SettingsCommand {
     },
     /// Reset settings to defaults (all or a specific sub-resource)
     Reset {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         /// Optional sub-resource (e.g. synonyms, displayed-attributes, typo-tolerance)
         sub_resource: Option<String>,
     },
     /// Edit settings in $EDITOR
-    Edit { uid: String },
+    Edit {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
+        uid: String,
+    },
     /// Show diff of current vs default settings
-    Diff { uid: String },
+    Diff {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
+        uid: String,
+    },
 }
 
 pub async fn run(cli: &Cli, cmd: &SettingsCommand) -> Result<()> {

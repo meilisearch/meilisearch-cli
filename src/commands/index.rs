@@ -14,18 +14,34 @@ pub enum IndexCommand {
     },
     /// Create an index
     Create {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         #[arg(long)]
         primary_key: Option<String>,
     },
     /// Get index info
-    Get { uid: String },
+    Get {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
+        uid: String,
+    },
     /// Delete an index
-    Delete { uid: String },
+    Delete {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
+        uid: String,
+    },
     /// Show index stats
-    Stats { uid: String },
+    Stats {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
+        uid: String,
+    },
     /// Update an index (change primary key)
     Update {
+        /// Index UID
+        #[arg(value_name = "INDEX_UID")]
         uid: String,
         #[arg(long)]
         primary_key: Option<String>,

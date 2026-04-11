@@ -1,6 +1,6 @@
 [package]
 name = "meilisearch-cli"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "The official Meilisearch CLI"
 license = "MIT"
@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
 colored_json = "5"
 crossterm = "0.29"
 csv = "1"

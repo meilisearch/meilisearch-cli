@@ -10,6 +10,7 @@ use super::{Cli, build_client, print_json};
 #[derive(Args)]
 pub struct ImportArgs {
     /// Index UID
+    #[arg(value_name = "INDEX_UID")]
     pub uid: String,
 
     /// File(s) to import
