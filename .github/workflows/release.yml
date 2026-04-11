@@ -11,8 +11,38 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2.7.8
+      - run: cargo fmt --check
+      - run: cargo clippy -- -D warnings
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      meilisearch:
+        image: getmeili/meilisearch:latest
+        ports:
+          - 7700:7700
+        env:
+          MEILI_ENV: development
+          MEILI_NO_ANALYTICS: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2.7.8
+      - run: cargo test
+        env:
+          MEILI_URL: http://localhost:7700
+
   build:
     name: Build ${{ matrix.target }}
+    needs: [check, test]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -35,7 +65,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.7.8
         with:
           key: ${{ matrix.target }}
 
@@ -85,7 +115,6 @@ jobs:
         run: |
           mkdir -p latest
           for f in artifacts/meilisearch-*.tar.gz; do
-            # meilisearch-v0.1.0-x86_64-unknown-linux-gnu.tar.gz → meilisearch-latest-x86_64-unknown-linux-gnu.tar.gz
             name="$(basename "$f" | sed "s/${{ github.ref_name }}/latest/")"
             cp "$f" "latest/${name}"
           done
