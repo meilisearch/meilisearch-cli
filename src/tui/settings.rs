@@ -905,10 +905,7 @@ fn handle_editor_input(key: event::KeyEvent, state: &mut State) -> Action {
                 }
                 KeyCode::Up if shift && *ordered => {
                     // Reorder: swap with previous checked item
-                    if items[*cursor].checked
-                        && *cursor > 0
-                        && items[*cursor - 1].checked
-                    {
+                    if items[*cursor].checked && *cursor > 0 && items[*cursor - 1].checked {
                         items.swap(*cursor, *cursor - 1);
                         *cursor -= 1;
                     }
