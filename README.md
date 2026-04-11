@@ -5,10 +5,22 @@ The official Meilisearch CLI — a single Rust binary that covers everything fro
 ## Installation
 
 ```bash
+# Quick install (latest release)
+curl -fsSL https://raw.githubusercontent.com/meilisearch/meilisearch-cli/main/install.sh | sh
+
+# Install a specific version
+curl -fsSL https://raw.githubusercontent.com/meilisearch/meilisearch-cli/main/install.sh | sh -s -- v0.1.0
+
+# Custom install directory
+INSTALL_DIR=~/.local/bin curl -fsSL https://raw.githubusercontent.com/meilisearch/meilisearch-cli/main/install.sh | sh
+
 # From source
 cargo install --path .
+```
 
-# The binary is named `meilisearch`
+The binary is named `meilisearch`:
+
+```bash
 meilisearch --help
 ```
 

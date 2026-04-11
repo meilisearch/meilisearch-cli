@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build
+        run: |
+          if [ "${{ matrix.cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+
+      - name: Package
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../meilisearch-${{ github.ref_name }}-${{ matrix.target }}.tar.gz meilisearch
+          cd ../../..
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meilisearch-${{ matrix.target }}
+          path: meilisearch-*.tar.gz
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/meilisearch-*.tar.gz
+
+      # Also update the "latest" release so install.sh can use a stable URL
+      - name: Rename artifacts for latest
+        run: |
+          mkdir -p latest
+          for f in artifacts/meilisearch-*.tar.gz; do
+            # meilisearch-v0.1.0-x86_64-unknown-linux-gnu.tar.gz → meilisearch-latest-x86_64-unknown-linux-gnu.tar.gz
+            name="$(basename "$f" | sed "s/${{ github.ref_name }}/latest/")"
+            cp "$f" "latest/${name}"
+          done
+
+      - name: Update latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Release
+          body: |
+            Always points to the most recent stable release (${{ github.ref_name }}).
+            Used by `install.sh` for zero-config installation.
+          prerelease: false
+          make_latest: false
+          files: latest/meilisearch-latest-*.tar.gz

@@ -11,6 +11,7 @@ mod log;
 mod network;
 mod project;
 mod search;
+pub mod self_update;
 mod settings;
 mod task;
 
@@ -129,6 +130,13 @@ pub enum Command {
     Metrics,
     /// Interactive chat
     Chat(chat::ChatArgs),
+    /// Update the CLI to the latest version
+    #[command(name = "self-update")]
+    SelfUpdate {
+        /// Force re-download even if already up to date
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 mod chat;
@@ -171,9 +179,19 @@ pub async fn run(cli: Cli) -> Result<()> {
     match &cli.command {
         Command::Health => health::run(&cli).await,
         Command::Version => {
-            let client = build_client(&cli)?;
-            let v = client.version().await?;
-            print_json(&v, cli.raw);
+            eprintln!("meilisearch-cli v{}", env!("CARGO_PKG_VERSION"));
+            if let Ok(client) = build_client(&cli)
+                && let Ok(v) = client.version().await
+            {
+                eprintln!(
+                    "meilisearch server {}",
+                    v["pkgVersion"].as_str().unwrap_or("unknown")
+                );
+            }
+            if let Ok(Some(latest)) = self_update::check_for_updates().await {
+                eprintln!("\nUpdate available: {latest}");
+                eprintln!("Run `meilisearch self-update` to upgrade.");
+            }
             Ok(())
         }
         Command::Stats => {
@@ -208,5 +226,6 @@ pub async fn run(cli: Cli) -> Result<()> {
         Command::Network { cmd } => network::run(&cli, cmd).await,
         Command::Experimental { cmd } => experimental::run(&cli, cmd).await,
         Command::Chat(args) => chat::run(&cli, args).await,
+        Command::SelfUpdate { force } => self_update::run(*force).await,
     }
 }
