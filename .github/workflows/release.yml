@@ -24,23 +24,20 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    services:
-      meilisearch:
-        image: getmeili/meilisearch:latest
-        ports:
-          - 7700:7700
-        env:
-          MEILI_ENV: development
-          MEILI_NO_ANALYTICS: true
-        options: >-
-          --health-cmd "curl -f http://localhost:7700/health || exit 1"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2.7.8
+
+      - name: Start Meilisearch
+        run: |
+          curl -L https://install.meilisearch.com | sh
+          ./meilisearch --no-analytics &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:7700/health && break
+            sleep 1
+          done
+
       - run: cargo test
 
   build:
