@@ -31,10 +31,13 @@ jobs:
         env:
           MEILI_ENV: development
           MEILI_NO_ANALYTICS: true
+        options: >-
+          --health-cmd "curl -f http://localhost:7700/health || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2.7.8
       - run: cargo test
-        env:
-          MEILI_URL: http://localhost:7700
