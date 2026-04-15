@@ -1,21 +1,21 @@
 # Promote
 
-`meilisearch promote` replicates indexes from one project to another. The primary use case is promoting a local development instance to a remote production or staging environment.
+`msc promote` replicates indexes from one project to another. The primary use case is promoting a local development instance to a remote production or staging environment.
 
 ## Usage
 
 ```bash
 # Promote all indexes from local to production
-meilisearch promote --from local --to production
+msc promote --from local --to production
 
 # Promote specific indexes only
-meilisearch promote --from local --to staging --indexes products,categories
+msc promote --from local --to staging --indexes products,categories
 
 # Dry run — see what would be promoted
-meilisearch promote --from local --to production --dry-run
+msc promote --from local --to production --dry-run
 
 # Create destination indexes if they don't exist
-meilisearch promote --from local --to production --create
+msc promote --from local --to production --create
 ```
 
 ## How It Works
@@ -49,8 +49,8 @@ Done. 3 indexes promoted in 5.6s.
 
 ## Reverse Direction
 
-To copy from remote to local, use `meilisearch clone` instead:
+To copy from remote to local, use `msc clone` instead:
 
 ```bash
-meilisearch clone products products --from production --to local
+msc clone products products --from production --to local
 ```

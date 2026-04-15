@@ -37,45 +37,45 @@ INSTALL_DIR=~/.local/bin curl -fsSL https://raw.githubusercontent.com/meilisearc
 cargo install --path .
 ```
 
-The binary is named `meilisearch`:
+The binary is named `msc` (short for **M**eili**s**earch **C**LI):
 
 ```bash
-meilisearch --help
+msc --help
 ```
 
 ## Quick Start
 
 ```bash
 # Check server health
-meilisearch health
+msc health
 
 # Create an index and import data
-meilisearch index create movies --primary-key id
-meilisearch import movies --file movies.json
+msc index create movies --primary-key id
+msc import movies --file movies.json
 
 # Search
-meilisearch search movies "gatsby"
+msc search movies "gatsby"
 
 # Interactive search TUI
-meilisearch search movies -i
+msc search movies -i
 ```
 
 ## Project Management
 
-The CLI supports multiple Meilisearch instances through named projects stored in `~/.config/meilisearch/config.toml`.
+The CLI supports multiple Meilisearch instances through named projects stored in `~/.config/msc/config.toml`.
 
 ```bash
 # Add a remote project
-meilisearch project add production --url https://my-instance.meilisearch.io --api-key masterKey123
+msc project add production --url https://my-instance.meilisearch.io --api-key masterKey123
 
 # Switch default project
-meilisearch project use production
+msc project use production
 
 # List all projects
-meilisearch project list
+msc project list
 
 # Target a specific project for one command
-meilisearch --project staging health
+msc --project staging health
 ```
 
 ## Commands
@@ -83,133 +83,135 @@ meilisearch --project staging health
 ### Index Management
 
 ```bash
-meilisearch index list
-meilisearch index create <uid> [--primary-key <key>]
-meilisearch index get <uid>
-meilisearch index delete <uid>
-meilisearch index stats <uid>
-meilisearch index swap <index-a> <index-b>
+msc index list
+msc index create <uid> [--primary-key <key>]
+msc index get <uid>
+msc index delete <uid>
+msc index stats <uid>
+msc index swap <index-a> <index-b>
 ```
 
 ### Document Management
 
 ```bash
-meilisearch document add <uid> --file <path>
-meilisearch document add <uid> < data.json          # stdin
-meilisearch document get <uid> <id>
-meilisearch document list <uid> [--limit 20]
-meilisearch document delete <uid> <id>
-meilisearch document delete-all <uid>
+msc document add <uid> --file <path>
+msc document add <uid> < data.json          # stdin
+msc document get <uid> <id>
+msc document list <uid> [--limit 20]
+msc document delete <uid> <id>
+msc document delete-all <uid>
 ```
 
 ### Search
 
 ```bash
-meilisearch search <uid> <query> [--filter <expr>] [--facets <...>] [--limit <n>]
-meilisearch search <uid> -i                         # interactive TUI
+msc search <uid> <query> [--filter <expr>] [--facets <...>] [--limit <n>]
+msc search <uid> -i                         # interactive TUI
 ```
 
 ### Settings
 
 ```bash
-meilisearch settings get <uid>
-meilisearch settings update <uid> --file settings.json
-meilisearch settings reset <uid>
-meilisearch settings edit <uid>                     # opens $EDITOR
-meilisearch settings edit <uid> -i                  # interactive TUI
-meilisearch settings edit <uid> synonyms            # edit sub-resource in $EDITOR
-meilisearch settings diff <uid>
+msc settings get <uid>
+msc settings update <uid> --file settings.json
+msc settings reset <uid>
+msc settings edit <uid>                     # opens $EDITOR
+msc settings edit <uid> -i                  # interactive TUI
+msc settings edit <uid> synonyms            # edit sub-resource in $EDITOR
+msc settings diff <uid>
 ```
 
 ### Tasks
 
 ```bash
-meilisearch task list [--status <status>] [--type <type>]
-meilisearch task get <id>
-meilisearch task cancel <uids>
-meilisearch task delete <uids>
-meilisearch task wait <id> [--timeout 60000]
-meilisearch task watch <id>
+msc task list [--status <status>] [--type <type>]
+msc task get <id>
+msc task cancel <uids>
+msc task delete <uids>
+msc task wait <id> [--timeout 60000]
+msc task watch <id>
 ```
 
 ### API Keys
 
 ```bash
-meilisearch key list
-meilisearch key get <key>
-meilisearch key create --actions search --indexes movies
-meilisearch key delete <key>
+msc key list
+msc key get <key>
+msc key create --actions search --indexes movies
+msc key delete <key>
 ```
 
 ### Import
 
 ```bash
-meilisearch import <uid> --file data.json
-meilisearch import <uid> --file data.ndjson --batch-size 10485760
-meilisearch import <uid> --file data.csv
-meilisearch import <uid> < stdin.ndjson
+msc import <uid> --file data.json
+msc import <uid> --file data.ndjson --batch-size 10485760
+msc import <uid> --file data.csv
+msc import <uid> < stdin.ndjson
 ```
 
 ### Clone
 
 ```bash
-meilisearch clone <source-uid> <dest-uid>
-meilisearch clone <source-uid> <dest-uid> --from production --to staging
+msc clone <source-uid> <dest-uid>
+msc clone <source-uid> <dest-uid> --from production --to staging
 ```
 
 ### Promote
 
 ```bash
-meilisearch promote --from local --to production
-meilisearch promote --from local --to staging --indexes products,categories
-meilisearch promote --from local --to production --dry-run
+msc promote --from local --to production
+msc promote --from local --to staging --indexes products,categories
+msc promote --from local --to production --dry-run
 ```
 
 ### Local Instance
 
 ```bash
-meilisearch local start       # Docker preferred, binary fallback
-meilisearch local stop
-meilisearch local restart
-meilisearch local status
-meilisearch local logs [-f]
-meilisearch local reset       # wipe data, restart fresh
-meilisearch local upgrade     # upgrade to latest version
+msc local start       # Docker preferred, binary fallback
+msc local stop
+msc local restart
+msc local status
+msc local logs [-f]
+msc local reset       # wipe data, restart fresh
+msc local upgrade     # upgrade to latest version
 ```
 
 ### Dumps & Snapshots
 
 ```bash
-meilisearch dump create
-meilisearch dump snapshot
+msc dump create
+msc dump snapshot
 ```
 
 ### Chat
 
 ```bash
-meilisearch chat "What products do you have?"
-meilisearch chat -i                                 # interactive TUI
+msc chat "What products do you have?"
+msc chat -i                                 # interactive TUI
 ```
 
 ### Server Info
 
 ```bash
-meilisearch health
-meilisearch version
-meilisearch stats
+msc health
+msc version
+msc stats
 ```
 
 ## Output Formatting
 
 ```bash
-meilisearch search movies "query"              # pretty-printed JSON
-meilisearch --raw search movies "query"        # compact JSON, pipeable
-meilisearch --quiet health                     # errors only
+msc search movies "query"              # pretty-printed JSON
+msc --raw search movies "query"        # compact JSON, pipeable
+msc --quiet health                     # errors only
 ```
 
 ## Configuration
 
-Config file: `~/.config/meilisearch/config.toml`
+Config file: `~/.config/msc/config.toml`
+
+> **Migration note**: users upgrading from earlier versions (when the binary was named `meilisearch`) will have their existing config at `~/.config/meilisearch/config.toml` automatically migrated to the new location on first run.
 
 ```toml
 default = "local"

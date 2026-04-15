@@ -27,7 +27,7 @@ cargo fmt --check
 ```
 src/
 ├── main.rs           # Entry point
-├── config.rs         # Project credential management (~/.config/meilisearch/config.toml)
+├── config.rs         # Project credential management (~/.config/msc/config.toml)
 ├── client.rs         # HTTP client wrapper for Meilisearch REST API
 ├── commands/
 │   ├── mod.rs        # CLI definition (clap), command routing

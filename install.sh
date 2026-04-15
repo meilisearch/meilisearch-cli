@@ -2,7 +2,7 @@
 set -eu
 
 REPO="meilisearch/meilisearch-cli"
-BINARY="meilisearch"
+BINARY="msc"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # Detect OS and architecture
@@ -60,7 +60,7 @@ install_completions() {
         zsh)
             comp_dir="${HOME}/.zfunc"
             mkdir -p "$comp_dir"
-            "$bin" completions zsh > "${comp_dir}/_meilisearch"
+            "$bin" completions zsh > "${comp_dir}/_msc"
 
             # Ensure fpath and compinit are set up in .zshrc
             zshrc="${HOME}/.zshrc"
@@ -69,19 +69,19 @@ install_completions() {
                     printf '\n# Meilisearch CLI completions\nfpath=(~/.zfunc $fpath)\nautoload -Uz compinit && compinit\n' >> "$zshrc"
                 fi
             fi
-            echo "  Installed to ${comp_dir}/_meilisearch"
+            echo "  Installed to ${comp_dir}/_msc"
             ;;
         bash)
             comp_dir="${HOME}/.local/share/bash-completion/completions"
             mkdir -p "$comp_dir"
-            "$bin" completions bash > "${comp_dir}/meilisearch"
-            echo "  Installed to ${comp_dir}/meilisearch"
+            "$bin" completions bash > "${comp_dir}/msc"
+            echo "  Installed to ${comp_dir}/msc"
             ;;
         fish)
             comp_dir="${HOME}/.config/fish/completions"
             mkdir -p "$comp_dir"
-            "$bin" completions fish > "${comp_dir}/meilisearch.fish"
-            echo "  Installed to ${comp_dir}/meilisearch.fish"
+            "$bin" completions fish > "${comp_dir}/msc.fish"
+            echo "  Installed to ${comp_dir}/msc.fish"
             ;;
     esac
 }
@@ -126,7 +126,7 @@ main() {
     install_completions "${INSTALL_DIR}/${BINARY}"
 
     echo ""
-    echo "Run 'meilisearch --help' to get started."
+    echo "Run 'msc --help' to get started."
     if [ "$(detect_shell)" = "zsh" ]; then
         echo "Restart your shell or run 'source ~/.zshrc' to enable completions."
     fi

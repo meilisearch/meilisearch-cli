@@ -1,12 +1,12 @@
 [package]
 name = "meilisearch-cli"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "The official Meilisearch CLI"
 license = "MIT"
 
 [[bin]]
-name = "meilisearch"
+name = "msc"
 path = "src/main.rs"
 
 [dependencies]

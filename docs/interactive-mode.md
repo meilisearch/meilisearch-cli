@@ -5,7 +5,7 @@ The CLI includes full-screen TUI modes for search and chat, built with ratatui.
 ## Interactive Search
 
 ```bash
-meilisearch search <uid> -i
+msc search <uid> -i
 ```
 
 Opens a full-screen search interface with:
@@ -34,7 +34,7 @@ Shows hit count and processing time in milliseconds.
 ## Interactive Chat
 
 ```bash
-meilisearch chat -i
+msc chat -i
 ```
 
 Opens a full-screen chat interface for conversational search using the Meilisearch `/chat/completions` endpoint.

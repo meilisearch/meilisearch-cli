@@ -4,20 +4,20 @@ The CLI ships with a built-in `local` project that manages a Meilisearch instanc
 
 ## How It Works
 
-When you run `meilisearch local start`, the CLI:
+When you run `msc local start`, the CLI:
 
 1. Checks if Docker is available (`docker info`)
 2. If Docker is available (preferred): starts a container using `getmeili/meilisearch:latest`
 3. If Docker is unavailable: downloads the Meilisearch binary and runs it as a daemon
 
-Data is stored in `~/.local/share/meilisearch/local/`.
+Data is stored in `~/.local/share/msc/local/`.
 
 ## Commands
 
 ### Start
 
 ```bash
-meilisearch local start
+msc local start
 ```
 
 Starts the local instance. Idempotent — safe to run multiple times.
@@ -31,13 +31,13 @@ Starting local Meilisearch with Docker...
 ### Stop
 
 ```bash
-meilisearch local stop
+msc local stop
 ```
 
 ### Status
 
 ```bash
-meilisearch local status
+msc local status
 ```
 
 Shows running mode (Docker or binary), status, and version.
@@ -45,14 +45,14 @@ Shows running mode (Docker or binary), status, and version.
 ### Logs
 
 ```bash
-meilisearch local logs
-meilisearch local logs -f    # follow
+msc local logs
+msc local logs -f    # follow
 ```
 
 ### Reset
 
 ```bash
-meilisearch local reset
+msc local reset
 ```
 
 Wipes all local data and restarts fresh.
@@ -60,7 +60,7 @@ Wipes all local data and restarts fresh.
 ### Upgrade
 
 ```bash
-meilisearch local upgrade
+msc local upgrade
 ```
 
 Pulls the latest Docker image (or downloads the latest binary), stops the current instance, and restarts with the new version. Meilisearch handles dumpless migration internally.
@@ -69,8 +69,8 @@ Pulls the latest Docker image (or downloads the latest binary), stops the curren
 
 | Path | Purpose |
 |------|---------|
-| `~/.local/share/meilisearch/local/` | Data directory |
-| `~/.local/share/meilisearch/local/data.ms` | Database (binary mode) |
-| `~/.local/share/meilisearch/local/meili.pid` | PID file (binary mode) |
-| `~/.local/share/meilisearch/local/meilisearch.log` | Log file (binary mode) |
-| `~/.local/share/meilisearch/bin/meilisearch-server` | Downloaded binary |
+| `~/.local/share/msc/local/` | Data directory |
+| `~/.local/share/msc/local/data.ms` | Database (binary mode) |
+| `~/.local/share/msc/local/meili.pid` | PID file (binary mode) |
+| `~/.local/share/msc/local/meilisearch.log` | Log file (binary mode) |
+| `~/.local/share/msc/bin/meilisearch-server` | Downloaded binary |

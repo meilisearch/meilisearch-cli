@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0] - 2026-04-15
+
+> **Breaking change**: the CLI binary has been renamed from `meilisearch` to `msc`. A one-time migration moves your existing config to the new location on first run, so projects and API keys are preserved. You may need to update shell aliases, scripts, and shell completions to use the new name.
+
+### Changed
+
+- **Binary renamed from `meilisearch` to `msc`** (short for **M**eili**s**earch **C**LI) to avoid the name collision with the Meilisearch server binary. All invocations now use `msc` instead of `meilisearch` — for example, `msc search movies "query"`, `msc local start`, `msc project list`.
+- **Config directory moved** from `~/.config/meilisearch/` to `~/.config/msc/`. On first run, the old `config.toml` is automatically moved to the new location and the message `Migrated config from … to …` is printed. No manual action is required.
+- **Local data directory moved** from `~/.local/share/meilisearch/` to `~/.local/share/msc/`. This affects the local project's data directory and the cached Meilisearch server binary used when Docker is unavailable. Users of `msc local` with an existing binary-mode install should re-run `msc local upgrade` or move the directory manually.
+- **Release artifacts renamed** from `meilisearch-<version>-<target>.tar.gz` to `msc-<version>-<target>.tar.gz`. The `install.sh` script and `msc self-update` use the new naming automatically.
+- **Shell completion filenames** updated to match the new binary name: `_msc` (zsh), `msc` (bash), and `msc.fish` (fish). Re-run `install.sh` or regenerate completions with `msc completions <shell>` to refresh them.
+- **Self-update message** now reads `Run \`msc self-update\` to upgrade.` instead of referencing the old binary name.
+
+### Migration guide
+
+1. Download the new release (or run `msc self-update` once you're already on a build that reads `msc-*.tar.gz` artifacts).
+2. The first time you run any `msc` command, your old `~/.config/meilisearch/config.toml` is moved to `~/.config/msc/config.toml` automatically. Verify with `msc project list`.
+3. If you had shell completions installed from the old binary, remove the stale files (`_meilisearch`, `meilisearch`, `meilisearch.fish`) and re-run `install.sh` or `msc completions <shell>`.
+4. Update any scripts, aliases, or CI jobs that invoke `meilisearch` to use `msc` instead.
+
 ## [0.3.0] - 2026-04-11
 
 ### Added

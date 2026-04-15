@@ -84,13 +84,13 @@ jobs:
       - name: Package
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../../meilisearch-${{ github.ref_name }}-${{ matrix.target }}.tar.gz meilisearch
+          tar czf ../../../msc-${{ github.ref_name }}-${{ matrix.target }}.tar.gz msc
           cd ../../..
 
       - uses: actions/upload-artifact@v4
         with:
-          name: meilisearch-${{ matrix.target }}
-          path: meilisearch-*.tar.gz
+          name: msc-${{ matrix.target }}
+          path: msc-*.tar.gz
 
   release:
     name: Create Release
@@ -108,13 +108,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: artifacts/meilisearch-*.tar.gz
+          files: artifacts/msc-*.tar.gz
 
       # Also update the "latest" release so install.sh can use a stable URL
       - name: Rename artifacts for latest
         run: |
           mkdir -p latest
-          for f in artifacts/meilisearch-*.tar.gz; do
+          for f in artifacts/msc-*.tar.gz; do
             name="$(basename "$f" | sed "s/${{ github.ref_name }}/latest/")"
             cp "$f" "latest/${name}"
           done
@@ -129,4 +129,4 @@ jobs:
             Used by `install.sh` for zero-config installation.
           prerelease: false
           make_latest: false
-          files: latest/meilisearch-latest-*.tar.gz
+          files: latest/msc-latest-*.tar.gz

@@ -72,7 +72,7 @@ pub async fn run(force: bool) -> Result<()> {
     eprintln!("New version available: {}", release.tag_name);
 
     let target = current_target()?;
-    let archive_name = format!("meilisearch-{}-{target}.tar.gz", release.tag_name);
+    let archive_name = format!("msc-{}-{target}.tar.gz", release.tag_name);
 
     let asset = release
         .assets
@@ -100,7 +100,7 @@ pub async fn run(force: bool) -> Result<()> {
     for entry in archive.entries()? {
         let mut entry = entry?;
         let path = entry.path()?;
-        if path.file_name().and_then(|n| n.to_str()) == Some("meilisearch") {
+        if path.file_name().and_then(|n| n.to_str()) == Some("msc") {
             entry.unpack(&tmp_path)?;
             found = true;
             break;

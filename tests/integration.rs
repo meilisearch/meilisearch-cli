@@ -1,7 +1,7 @@
 use std::process::Command;
 
 fn cli() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_meilisearch"))
+    Command::new(env!("CARGO_BIN_EXE_msc"))
 }
 
 fn unique_index() -> String {
@@ -21,7 +21,8 @@ fn test_version() {
     let output = cli().args(["version"]).output().unwrap();
     assert!(output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("meilisearch-cli v"));
+    assert!(stderr.contains("msc"));
+    assert!(stderr.contains("meilisearch-cli"));
     assert!(stderr.contains("meilisearch server"));
 }
 
@@ -91,7 +92,7 @@ fn test_document_crud() {
         .unwrap();
 
     // Add documents via stdin
-    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_meilisearch"))
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_msc"))
         .args(["document", "add", &idx])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -156,7 +157,7 @@ fn test_search() {
         .output()
         .unwrap();
 
-    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_meilisearch"))
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_msc"))
         .args(["document", "add", &idx])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())

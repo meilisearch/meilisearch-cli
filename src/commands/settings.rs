@@ -159,7 +159,7 @@ async fn run_editor(cli: &Cli, uid: &str, sub_resource: Option<&str>) -> Result<
     let pretty = serde_json::to_string_pretty(&settings)?;
 
     let file_label = sub_resource.unwrap_or("settings");
-    let tmp_path = std::env::temp_dir().join(format!("meilisearch-{file_label}-{uid}.json"));
+    let tmp_path = std::env::temp_dir().join(format!("msc-{file_label}-{uid}.json"));
     std::fs::write(&tmp_path, &pretty)?;
 
     let editor = std::env::var("EDITOR")

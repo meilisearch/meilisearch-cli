@@ -33,8 +33,8 @@ impl Default for Config {
                 r#type: Some("local".to_string()),
                 url: "http://127.0.0.1:7700".to_string(),
                 api_key: None,
-                data_dir: Some("~/.local/share/meilisearch/local".to_string()),
-                binary: Some("~/.local/share/meilisearch/bin/meilisearch-server".to_string()),
+                data_dir: Some("~/.local/share/msc/local".to_string()),
+                binary: Some("~/.local/share/msc/bin/meilisearch-server".to_string()),
             },
         );
         Config {
@@ -47,15 +47,46 @@ impl Default for Config {
 impl Config {
     pub fn config_path() -> Result<PathBuf> {
         let config_dir = dirs::config_dir().context("Could not determine config directory")?;
+        Ok(config_dir.join("msc").join("config.toml"))
+    }
+
+    /// Legacy config path from when the CLI binary was named "meilisearch".
+    /// Used for one-time migration on first run.
+    fn legacy_config_path() -> Result<PathBuf> {
+        let config_dir = dirs::config_dir().context("Could not determine config directory")?;
         Ok(config_dir.join("meilisearch").join("config.toml"))
     }
 
     pub fn load() -> Result<Self> {
         let path = Self::config_path()?;
         if !path.exists() {
-            let config = Config::default();
-            config.save()?;
-            return Ok(config);
+            // Migrate from old ~/.config/meilisearch/ location if present.
+            let legacy = Self::legacy_config_path()?;
+            if legacy.exists() {
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::rename(&legacy, &path).with_context(|| {
+                    format!(
+                        "Failed to migrate config from {} to {}",
+                        legacy.display(),
+                        path.display()
+                    )
+                })?;
+                // Remove the now-empty legacy directory (best-effort).
+                if let Some(legacy_dir) = legacy.parent() {
+                    std::fs::remove_dir(legacy_dir).ok();
+                }
+                eprintln!(
+                    "Migrated config from {} to {}",
+                    legacy.display(),
+                    path.display()
+                );
+            } else {
+                let config = Config::default();
+                config.save()?;
+                return Ok(config);
+            }
         }
         let content = std::fs::read_to_string(&path)
             .with_context(|| format!("Failed to read config file: {}", path.display()))?;
@@ -78,7 +109,7 @@ impl Config {
         let name = name.unwrap_or(&self.default);
         let project = self.projects.get(name).with_context(|| {
             format!(
-                "Project '{}' not found. Run `meilisearch project list` to see available projects.",
+                "Project '{}' not found. Run `msc project list` to see available projects.",
                 name
             )
         })?;
@@ -188,8 +219,8 @@ default = "local"
 type = "local"
 url = "http://127.0.0.1:7700"
 api_key = "meilisearch_local_dev"
-data_dir = "~/.local/share/meilisearch/local"
-binary = "~/.local/share/meilisearch/bin/meilisearch-server"
+data_dir = "~/.local/share/msc/local"
+binary = "~/.local/share/msc/bin/meilisearch-server"
 
 [projects.production]
 url = "https://my-instance.meilisearch.io"

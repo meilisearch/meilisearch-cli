@@ -25,7 +25,7 @@ pub enum LocalCommand {
 
 fn data_dir() -> Result<std::path::PathBuf> {
     let home = dirs::home_dir().context("Could not determine home directory")?;
-    Ok(home.join(".local/share/meilisearch/local"))
+    Ok(home.join(".local/share/msc/local"))
 }
 
 fn docker_available() -> bool {
@@ -116,7 +116,7 @@ async fn start_binary() -> Result<()> {
 
     let bin_dir = dirs::home_dir()
         .context("Could not determine home directory")?
-        .join(".local/share/meilisearch/bin");
+        .join(".local/share/msc/bin");
     let binary = bin_dir.join("meilisearch-server");
 
     if !binary.exists() {
@@ -329,7 +329,7 @@ pub async fn run(cmd: &LocalCommand) -> Result<()> {
             } else {
                 let bin_dir = dirs::home_dir()
                     .context("Could not determine home directory")?
-                    .join(".local/share/meilisearch/bin");
+                    .join(".local/share/msc/bin");
                 let binary = bin_dir.join("meilisearch-server");
                 stop().await?;
                 if binary.exists() {

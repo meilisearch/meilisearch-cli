@@ -23,11 +23,11 @@ use crate::config::Config;
 
 #[derive(Parser)]
 #[command(
-    name = "meilisearch",
+    name = "msc",
     about = "The official Meilisearch CLI",
     version,
     after_help = "",
-    override_usage = "meilisearch [OPTIONS] <COMMAND>",
+    override_usage = "msc [OPTIONS] <COMMAND>",
     help_template = "\
 {about}
 
@@ -243,7 +243,7 @@ pub async fn run(cli: Cli) -> Result<()> {
     match &cli.command {
         Command::Health => health::run(&cli).await,
         Command::Version => {
-            eprintln!("meilisearch-cli v{}", env!("CARGO_PKG_VERSION"));
+            eprintln!("msc (meilisearch-cli) v{}", env!("CARGO_PKG_VERSION"));
             if let Ok(client) = build_client(&cli)
                 && let Ok(v) = client.version().await
             {
@@ -254,7 +254,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             }
             if let Ok(Some(latest)) = self_update::check_for_updates().await {
                 eprintln!("\nUpdate available: {latest}");
-                eprintln!("Run `meilisearch self-update` to upgrade.");
+                eprintln!("Run `msc self-update` to upgrade.");
             }
             Ok(())
         }
@@ -292,12 +292,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Command::Chat(args) => chat::run(&cli, args).await,
         Command::SelfUpdate { force } => self_update::run(*force).await,
         Command::Completions { shell } => {
-            clap_complete::generate(
-                *shell,
-                &mut Cli::command(),
-                "meilisearch",
-                &mut std::io::stdout(),
-            );
+            clap_complete::generate(*shell, &mut Cli::command(), "msc", &mut std::io::stdout());
             Ok(())
         }
     }

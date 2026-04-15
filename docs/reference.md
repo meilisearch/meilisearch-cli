@@ -26,7 +26,7 @@ These options apply to all commands.
 List all indexes.
 
 ```bash
-meilisearch index list [--offset <N>] [--limit <N>]
+msc index list [--offset <N>] [--limit <N>]
 ```
 
 | Option | Description |
@@ -39,7 +39,7 @@ meilisearch index list [--offset <N>] [--limit <N>]
 Create an index.
 
 ```bash
-meilisearch index create <INDEX_UID> [--primary-key <KEY>]
+msc index create <INDEX_UID> [--primary-key <KEY>]
 ```
 
 | Argument | Required | Description |
@@ -55,7 +55,7 @@ meilisearch index create <INDEX_UID> [--primary-key <KEY>]
 Get index info.
 
 ```bash
-meilisearch index get <INDEX_UID>
+msc index get <INDEX_UID>
 ```
 
 | Argument | Required | Description |
@@ -67,7 +67,7 @@ meilisearch index get <INDEX_UID>
 Delete an index.
 
 ```bash
-meilisearch index delete <INDEX_UID>
+msc index delete <INDEX_UID>
 ```
 
 | Argument | Required | Description |
@@ -79,7 +79,7 @@ meilisearch index delete <INDEX_UID>
 Show index stats.
 
 ```bash
-meilisearch index stats <INDEX_UID>
+msc index stats <INDEX_UID>
 ```
 
 | Argument | Required | Description |
@@ -91,7 +91,7 @@ meilisearch index stats <INDEX_UID>
 Update an index (change primary key).
 
 ```bash
-meilisearch index update <INDEX_UID> [--primary-key <KEY>]
+msc index update <INDEX_UID> [--primary-key <KEY>]
 ```
 
 | Argument | Required | Description |
@@ -107,7 +107,7 @@ meilisearch index update <INDEX_UID> [--primary-key <KEY>]
 Swap two indexes.
 
 ```bash
-meilisearch index swap <INDEX_A> <INDEX_B>
+msc index swap <INDEX_A> <INDEX_B>
 ```
 
 | Argument | Required | Description |
@@ -124,7 +124,7 @@ meilisearch index swap <INDEX_A> <INDEX_B>
 Add or replace documents.
 
 ```bash
-meilisearch document add <INDEX_UID> [--file <PATH>] [--primary-key <KEY>]
+msc document add <INDEX_UID> [--file <PATH>] [--primary-key <KEY>]
 ```
 
 Reads from stdin if `--file` is not provided. Supports JSON, NDJSON (`.ndjson`, `.jsonl`), and CSV (`.csv`) formats.
@@ -143,7 +143,7 @@ Reads from stdin if `--file` is not provided. Supports JSON, NDJSON (`.ndjson`, 
 Add or update documents (partial update).
 
 ```bash
-meilisearch document update <INDEX_UID> [--file <PATH>] [--primary-key <KEY>]
+msc document update <INDEX_UID> [--file <PATH>] [--primary-key <KEY>]
 ```
 
 Same options as `document add`. Uses PUT instead of POST, so existing documents are partially updated.
@@ -153,7 +153,7 @@ Same options as `document add`. Uses PUT instead of POST, so existing documents 
 Get a single document.
 
 ```bash
-meilisearch document get <INDEX_UID> <DOCUMENT_ID>
+msc document get <INDEX_UID> <DOCUMENT_ID>
 ```
 
 | Argument | Required | Description |
@@ -166,7 +166,7 @@ meilisearch document get <INDEX_UID> <DOCUMENT_ID>
 List documents.
 
 ```bash
-meilisearch document list <INDEX_UID> [--offset <N>] [--limit <N>] [--fields <FIELDS>]
+msc document list <INDEX_UID> [--offset <N>] [--limit <N>] [--fields <FIELDS>]
 ```
 
 | Argument | Required | Description |
@@ -184,7 +184,7 @@ meilisearch document list <INDEX_UID> [--offset <N>] [--limit <N>] [--fields <FI
 Fetch documents with POST (supports filter).
 
 ```bash
-meilisearch document fetch <INDEX_UID> [--filter <EXPR>] [--offset <N>] [--limit <N>] [--fields <F1,F2>]
+msc document fetch <INDEX_UID> [--filter <EXPR>] [--offset <N>] [--limit <N>] [--fields <F1,F2>]
 ```
 
 | Argument | Required | Description |
@@ -203,7 +203,7 @@ meilisearch document fetch <INDEX_UID> [--filter <EXPR>] [--offset <N>] [--limit
 Delete a single document.
 
 ```bash
-meilisearch document delete <INDEX_UID> <DOCUMENT_ID>
+msc document delete <INDEX_UID> <DOCUMENT_ID>
 ```
 
 | Argument | Required | Description |
@@ -216,7 +216,7 @@ meilisearch document delete <INDEX_UID> <DOCUMENT_ID>
 Delete all documents in an index.
 
 ```bash
-meilisearch document delete-all <INDEX_UID>
+msc document delete-all <INDEX_UID>
 ```
 
 | Argument | Required | Description |
@@ -228,7 +228,7 @@ meilisearch document delete-all <INDEX_UID>
 Delete documents matching a filter.
 
 ```bash
-meilisearch document delete-by-filter <INDEX_UID> <FILTER>
+msc document delete-by-filter <INDEX_UID> <FILTER>
 ```
 
 | Argument | Required | Description |
@@ -241,7 +241,7 @@ meilisearch document delete-by-filter <INDEX_UID> <FILTER>
 Delete documents by batch of IDs.
 
 ```bash
-meilisearch document delete-batch <INDEX_UID> <ID1,ID2,...>
+msc document delete-batch <INDEX_UID> <ID1,ID2,...>
 ```
 
 | Argument | Required | Description |
@@ -254,7 +254,7 @@ meilisearch document delete-batch <INDEX_UID> <ID1,ID2,...>
 Edit documents by function.
 
 ```bash
-meilisearch document edit <INDEX_UID> <FUNCTION> [--filter <EXPR>]
+msc document edit <INDEX_UID> <FUNCTION> [--filter <EXPR>]
 ```
 
 | Argument | Required | Description |
@@ -275,7 +275,7 @@ meilisearch document edit <INDEX_UID> <FUNCTION> [--filter <EXPR>]
 Get current settings (all or a specific sub-resource).
 
 ```bash
-meilisearch settings get <INDEX_UID> [SUB_RESOURCE]
+msc settings get <INDEX_UID> [SUB_RESOURCE]
 ```
 
 | Argument | Required | Description |
@@ -288,7 +288,7 @@ meilisearch settings get <INDEX_UID> [SUB_RESOURCE]
 Update settings from JSON file or stdin.
 
 ```bash
-meilisearch settings update <INDEX_UID> [SUB_RESOURCE] [--file <PATH>]
+msc settings update <INDEX_UID> [SUB_RESOURCE] [--file <PATH>]
 ```
 
 | Argument | Required | Description |
@@ -305,7 +305,7 @@ meilisearch settings update <INDEX_UID> [SUB_RESOURCE] [--file <PATH>]
 Reset settings to defaults.
 
 ```bash
-meilisearch settings reset <INDEX_UID> [SUB_RESOURCE]
+msc settings reset <INDEX_UID> [SUB_RESOURCE]
 ```
 
 | Argument | Required | Description |
@@ -318,7 +318,7 @@ meilisearch settings reset <INDEX_UID> [SUB_RESOURCE]
 Edit settings in `$EDITOR` or interactive TUI.
 
 ```bash
-meilisearch settings edit <INDEX_UID> [SUB_RESOURCE] [-i]
+msc settings edit <INDEX_UID> [SUB_RESOURCE] [-i]
 ```
 
 | Argument | Required | Description |
@@ -350,7 +350,7 @@ meilisearch settings edit <INDEX_UID> [SUB_RESOURCE] [-i]
 Show current settings (diff view).
 
 ```bash
-meilisearch settings diff <INDEX_UID>
+msc settings diff <INDEX_UID>
 ```
 
 | Argument | Required | Description |
@@ -390,7 +390,7 @@ The following sub-resources can be used with `settings get`, `settings update`, 
 ### `import` - Import documents from file
 
 ```bash
-meilisearch import <INDEX_UID> [--file <PATH>] [--primary-key <KEY>] [--batch-size <BYTES>]
+msc import <INDEX_UID> [--file <PATH>] [--primary-key <KEY>] [--batch-size <BYTES>]
 ```
 
 Imports documents with a progress bar. Automatically batches NDJSON files. Reads from stdin if `--file` is not provided.
@@ -412,7 +412,7 @@ Imports documents with a progress bar. Automatically batches NDJSON files. Reads
 ### `search` - Search an index
 
 ```bash
-meilisearch search <INDEX_UID> [QUERY] [OPTIONS]
+msc search <INDEX_UID> [QUERY] [OPTIONS]
 ```
 
 | Argument | Required | Description |
@@ -446,7 +446,7 @@ meilisearch search <INDEX_UID> [QUERY] [OPTIONS]
 ### `multi-search` - Search across multiple indexes
 
 ```bash
-meilisearch multi-search [--file <PATH>]
+msc multi-search [--file <PATH>]
 ```
 
 | Option | Description |
@@ -467,7 +467,7 @@ Example input:
 ### `facet-search` - Perform a facet search
 
 ```bash
-meilisearch facet-search <INDEX_UID> <FACET_NAME> [--facet-query <QUERY>] [--filter <EXPR>]
+msc facet-search <INDEX_UID> <FACET_NAME> [--facet-query <QUERY>] [--filter <EXPR>]
 ```
 
 | Argument | Required | Description |
@@ -485,7 +485,7 @@ meilisearch facet-search <INDEX_UID> <FACET_NAME> [--facet-query <QUERY>] [--fil
 ### `similar` - Find similar documents
 
 ```bash
-meilisearch similar <INDEX_UID> <DOCUMENT_ID> [--limit <N>] [--filter <EXPR>]
+msc similar <INDEX_UID> <DOCUMENT_ID> [--limit <N>] [--filter <EXPR>]
 ```
 
 | Argument | Required | Description |
@@ -503,7 +503,7 @@ meilisearch similar <INDEX_UID> <DOCUMENT_ID> [--limit <N>] [--filter <EXPR>]
 ### `chat` - Interactive chat with your data
 
 ```bash
-meilisearch chat [MESSAGE] [--workspace <UID>] [--model <MODEL>] [-i]
+msc chat [MESSAGE] [--workspace <UID>] [--model <MODEL>] [-i]
 ```
 
 | Argument | Required | Description |
@@ -536,7 +536,7 @@ meilisearch chat [MESSAGE] [--workspace <UID>] [--model <MODEL>] [-i]
 ### `clone` - Clone an index
 
 ```bash
-meilisearch clone <SOURCE_UID> <DEST_UID> [--from <PROJECT>] [--to <PROJECT>]
+msc clone <SOURCE_UID> <DEST_UID> [--from <PROJECT>] [--to <PROJECT>]
 ```
 
 | Argument | Required | Description |
@@ -554,7 +554,7 @@ meilisearch clone <SOURCE_UID> <DEST_UID> [--from <PROJECT>] [--to <PROJECT>]
 ### `promote` - Promote indexes between projects
 
 ```bash
-meilisearch promote --to <PROJECT> [--from <PROJECT>] [--indexes <I1,I2>] [--dry-run] [--create]
+msc promote --to <PROJECT> [--from <PROJECT>] [--indexes <I1,I2>] [--dry-run] [--create]
 ```
 
 | Option | Default | Description |
@@ -574,7 +574,7 @@ meilisearch promote --to <PROJECT> [--from <PROJECT>] [--indexes <I1,I2>] [--dry
 Create a dump.
 
 ```bash
-meilisearch dump create
+msc dump create
 ```
 
 #### `dump snapshot`
@@ -582,7 +582,7 @@ meilisearch dump create
 Create a snapshot.
 
 ```bash
-meilisearch dump snapshot
+msc dump snapshot
 ```
 
 ---
@@ -594,7 +594,7 @@ meilisearch dump snapshot
 List tasks with optional filters.
 
 ```bash
-meilisearch task list [OPTIONS]
+msc task list [OPTIONS]
 ```
 
 | Option | Description |
@@ -618,7 +618,7 @@ meilisearch task list [OPTIONS]
 Get a task by ID.
 
 ```bash
-meilisearch task get <TASK_ID>
+msc task get <TASK_ID>
 ```
 
 | Argument | Required | Description |
@@ -630,7 +630,7 @@ meilisearch task get <TASK_ID>
 Cancel tasks matching filters. Takes the same filter options as `task list`.
 
 ```bash
-meilisearch task cancel [--uids <UIDS>] [--statuses <STATUSES>] [...]
+msc task cancel [--uids <UIDS>] [--statuses <STATUSES>] [...]
 ```
 
 #### `task delete`
@@ -638,7 +638,7 @@ meilisearch task cancel [--uids <UIDS>] [--statuses <STATUSES>] [...]
 Delete tasks matching filters. Takes the same filter options as `task list`.
 
 ```bash
-meilisearch task delete [--uids <UIDS>] [--statuses <STATUSES>] [...]
+msc task delete [--uids <UIDS>] [--statuses <STATUSES>] [...]
 ```
 
 #### `task wait`
@@ -646,7 +646,7 @@ meilisearch task delete [--uids <UIDS>] [--statuses <STATUSES>] [...]
 Wait for a task to complete.
 
 ```bash
-meilisearch task wait <TASK_ID> [--timeout <MS>]
+msc task wait <TASK_ID> [--timeout <MS>]
 ```
 
 | Argument | Required | Description |
@@ -662,7 +662,7 @@ meilisearch task wait <TASK_ID> [--timeout <MS>]
 Watch a task until completion (polls and displays status).
 
 ```bash
-meilisearch task watch <TASK_ID>
+msc task watch <TASK_ID>
 ```
 
 | Argument | Required | Description |
@@ -678,7 +678,7 @@ meilisearch task watch <TASK_ID>
 List batches.
 
 ```bash
-meilisearch batch list [OPTIONS]
+msc batch list [OPTIONS]
 ```
 
 | Option | Description |
@@ -695,7 +695,7 @@ meilisearch batch list [OPTIONS]
 Get a batch by UID.
 
 ```bash
-meilisearch batch get <BATCH_UID>
+msc batch get <BATCH_UID>
 ```
 
 | Argument | Required | Description |
@@ -709,13 +709,13 @@ meilisearch batch get <BATCH_UID>
 ### `health` - Check server health
 
 ```bash
-meilisearch health
+msc health
 ```
 
 ### `version` - Show server version
 
 ```bash
-meilisearch version
+msc version
 ```
 
 Shows CLI version, Meilisearch server version, and whether a CLI update is available.
@@ -723,13 +723,13 @@ Shows CLI version, Meilisearch server version, and whether a CLI update is avail
 ### `stats` - Show server stats
 
 ```bash
-meilisearch stats
+msc stats
 ```
 
 ### `metrics` - Show Prometheus metrics
 
 ```bash
-meilisearch metrics
+msc metrics
 ```
 
 Returns raw Prometheus-format metrics from the server.
@@ -743,7 +743,7 @@ Returns raw Prometheus-format metrics from the server.
 List all API keys.
 
 ```bash
-meilisearch key list
+msc key list
 ```
 
 #### `key get`
@@ -751,7 +751,7 @@ meilisearch key list
 Get an API key.
 
 ```bash
-meilisearch key get <API_KEY>
+msc key get <API_KEY>
 ```
 
 | Argument | Required | Description |
@@ -763,7 +763,7 @@ meilisearch key get <API_KEY>
 Create an API key.
 
 ```bash
-meilisearch key create --actions <ACTIONS> --indexes <INDEXES> [--description <DESC>] [--expires-at <DATE>]
+msc key create --actions <ACTIONS> --indexes <INDEXES> [--description <DESC>] [--expires-at <DATE>]
 ```
 
 | Option | Description |
@@ -778,7 +778,7 @@ meilisearch key create --actions <ACTIONS> --indexes <INDEXES> [--description <D
 Update an API key.
 
 ```bash
-meilisearch key update <API_KEY> [--description <DESC>] [--name <NAME>]
+msc key update <API_KEY> [--description <DESC>] [--name <NAME>]
 ```
 
 | Argument | Required | Description |
@@ -795,7 +795,7 @@ meilisearch key update <API_KEY> [--description <DESC>] [--name <NAME>]
 Delete an API key.
 
 ```bash
-meilisearch key delete <API_KEY>
+msc key delete <API_KEY>
 ```
 
 | Argument | Required | Description |
@@ -811,7 +811,7 @@ meilisearch key delete <API_KEY>
 Update the target of stderr logs.
 
 ```bash
-meilisearch log stderr <TARGET>
+msc log stderr <TARGET>
 ```
 
 | Argument | Required | Description |
@@ -823,7 +823,7 @@ meilisearch log stderr <TARGET>
 Start streaming logs.
 
 ```bash
-meilisearch log stream <TARGET> [--mode <MODE>]
+msc log stream <TARGET> [--mode <MODE>]
 ```
 
 | Argument | Required | Description |
@@ -839,7 +839,7 @@ meilisearch log stream <TARGET> [--mode <MODE>]
 Stop streaming logs.
 
 ```bash
-meilisearch log stop
+msc log stop
 ```
 
 ---
@@ -851,7 +851,7 @@ meilisearch log stop
 Get current network configuration.
 
 ```bash
-meilisearch network get
+msc network get
 ```
 
 #### `network update`
@@ -859,7 +859,7 @@ meilisearch network get
 Update network configuration.
 
 ```bash
-meilisearch network update [--file <PATH>]
+msc network update [--file <PATH>]
 ```
 
 | Option | Description |
@@ -875,7 +875,7 @@ meilisearch network update [--file <PATH>]
 Get all experimental features.
 
 ```bash
-meilisearch experimental get
+msc experimental get
 ```
 
 #### `experimental update`
@@ -883,7 +883,7 @@ meilisearch experimental get
 Configure experimental features.
 
 ```bash
-meilisearch experimental update [--file <PATH>]
+msc experimental update [--file <PATH>]
 ```
 
 | Option | Description |
@@ -896,14 +896,14 @@ meilisearch experimental update [--file <PATH>]
 
 ### `project` - Manage project credentials
 
-Projects are stored in `~/.config/meilisearch/config.toml`.
+Projects are stored in `~/.config/msc/config.toml`.
 
 #### `project add`
 
 Add a new project.
 
 ```bash
-meilisearch project add <NAME> --url <URL> [--api-key <KEY>]
+msc project add <NAME> --url <URL> [--api-key <KEY>]
 ```
 
 | Argument | Required | Description |
@@ -920,7 +920,7 @@ meilisearch project add <NAME> --url <URL> [--api-key <KEY>]
 Remove a project.
 
 ```bash
-meilisearch project remove <NAME>
+msc project remove <NAME>
 ```
 
 | Argument | Required | Description |
@@ -932,7 +932,7 @@ meilisearch project remove <NAME>
 List all projects.
 
 ```bash
-meilisearch project list
+msc project list
 ```
 
 #### `project use`
@@ -940,7 +940,7 @@ meilisearch project list
 Set the default project.
 
 ```bash
-meilisearch project use <NAME>
+msc project use <NAME>
 ```
 
 | Argument | Required | Description |
@@ -952,7 +952,7 @@ meilisearch project use <NAME>
 Show the current default project.
 
 ```bash
-meilisearch project current
+msc project current
 ```
 
 ---
@@ -966,7 +966,7 @@ Manages a local Meilisearch instance using Docker (preferred) or a downloaded bi
 Start the local Meilisearch instance.
 
 ```bash
-meilisearch local start
+msc local start
 ```
 
 #### `local stop`
@@ -974,7 +974,7 @@ meilisearch local start
 Stop the local Meilisearch instance.
 
 ```bash
-meilisearch local stop
+msc local stop
 ```
 
 #### `local restart`
@@ -982,7 +982,7 @@ meilisearch local stop
 Restart the local Meilisearch instance.
 
 ```bash
-meilisearch local restart
+msc local restart
 ```
 
 #### `local status`
@@ -990,7 +990,7 @@ meilisearch local restart
 Show status of the local instance.
 
 ```bash
-meilisearch local status
+msc local status
 ```
 
 #### `local logs`
@@ -998,7 +998,7 @@ meilisearch local status
 Show logs of the local instance.
 
 ```bash
-meilisearch local logs [-f]
+msc local logs [-f]
 ```
 
 | Option | Description |
@@ -1010,7 +1010,7 @@ meilisearch local logs [-f]
 Reset local data (wipe and restart fresh).
 
 ```bash
-meilisearch local reset
+msc local reset
 ```
 
 #### `local upgrade`
@@ -1018,7 +1018,7 @@ meilisearch local reset
 Upgrade local Meilisearch to latest version.
 
 ```bash
-meilisearch local upgrade
+msc local upgrade
 ```
 
 ---
@@ -1026,7 +1026,7 @@ meilisearch local upgrade
 ### `self-update` - Update the CLI
 
 ```bash
-meilisearch self-update [--force]
+msc self-update [--force]
 ```
 
 | Option | Description |
@@ -1038,7 +1038,7 @@ meilisearch self-update [--force]
 ### `completions` - Generate shell completions
 
 ```bash
-meilisearch completions <SHELL>
+msc completions <SHELL>
 ```
 
 | Argument | Required | Description |
@@ -1049,13 +1049,13 @@ meilisearch completions <SHELL>
 
 ```bash
 # Bash
-meilisearch completions bash > ~/.local/share/bash-completion/completions/meilisearch
+msc completions bash > ~/.local/share/bash-completion/completions/msc
 
 # Zsh
-meilisearch completions zsh > ~/.zfunc/_meilisearch
+msc completions zsh > ~/.zfunc/_msc
 
 # Fish
-meilisearch completions fish > ~/.config/fish/completions/meilisearch.fish
+msc completions fish > ~/.config/fish/completions/msc.fish
 ```
 
 The install script automatically sets up completions for your detected shell.

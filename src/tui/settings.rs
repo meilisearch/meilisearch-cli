@@ -1140,7 +1140,7 @@ async fn launch_json_editor(
     let value = get_value(&state.settings, &state.changes, key).clone();
     let pretty = serde_json::to_string_pretty(&value)?;
 
-    let tmp_path = std::env::temp_dir().join(format!("meilisearch-{slug}-{uid}.json"));
+    let tmp_path = std::env::temp_dir().join(format!("msc-{slug}-{uid}.json"));
     std::fs::write(&tmp_path, &pretty)?;
 
     let editor = std::env::var("EDITOR")
