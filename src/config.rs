@@ -124,6 +124,14 @@ impl Config {
         self.save()
     }
 
+    pub fn update_project(&mut self, name: &str, project: Project) -> Result<()> {
+        if !self.projects.contains_key(name) {
+            bail!("Project '{}' not found.", name);
+        }
+        self.projects.insert(name.to_string(), project);
+        self.save()
+    }
+
     pub fn remove_project(&mut self, name: &str) -> Result<()> {
         if name == self.default {
             bail!(

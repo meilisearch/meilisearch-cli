@@ -20,6 +20,8 @@ pub enum ProjectCommand {
     List,
     /// Set the default project
     Use { name: String },
+    /// Update an existing project
+    Update { name: String },
     /// Show the current default project
     Current,
 }
@@ -75,6 +77,28 @@ pub async fn run(cmd: &ProjectCommand) -> Result<()> {
             let mut config = Config::load()?;
             config.set_default(name)?;
             println!("Default project set to '{}'.", name);
+        }
+        ProjectCommand::Update { name } => {
+            let config = Config::load()?;
+            let (_, existing) = config.get_project(Some(name))?;
+            let url = Input::<String>::new()
+                .with_prompt(format!("URL (current: {})", existing.url))
+                .interact_text()?;
+            let key: String = Password::new()
+                .with_prompt("API key (leave empty to remove)")
+                .allow_empty_password(true)
+                .interact()?;
+            let api_key = if key.is_empty() { None } else { Some(key) };
+            let project = Project {
+                r#type: existing.r#type.clone(),
+                url,
+                api_key,
+                data_dir: existing.data_dir.clone(),
+                binary: existing.binary.clone(),
+            };
+            let mut config = Config::load()?;
+            config.update_project(name, project)?;
+            println!("Project '{}' updated.", name);
         }
         ProjectCommand::Current => {
             let config = Config::load()?;
