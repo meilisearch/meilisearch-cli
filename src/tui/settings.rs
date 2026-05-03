@@ -904,7 +904,8 @@ fn handle_editor_input(key: event::KeyEvent, state: &mut State) -> Action {
                     exit_editor(state);
                 }
                 KeyCode::Up
-                    if shift && *ordered
+                    if shift
+                        && *ordered
                         && items[*cursor].checked
                         && *cursor > 0
                         && items[*cursor - 1].checked =>
@@ -914,7 +915,8 @@ fn handle_editor_input(key: event::KeyEvent, state: &mut State) -> Action {
                 }
                 KeyCode::Up if shift && *ordered => {}
                 KeyCode::Down
-                    if shift && *ordered
+                    if shift
+                        && *ordered
                         && items[*cursor].checked
                         && *cursor + 1 < items.len()
                         && items[*cursor + 1].checked =>
