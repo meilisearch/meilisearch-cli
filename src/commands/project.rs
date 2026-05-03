@@ -31,9 +31,7 @@ pub async fn run(cmd: &ProjectCommand) -> Result<()> {
         ProjectCommand::Add { name, url, api_key } => {
             let resolved_url = match url {
                 Some(u) => u.clone(),
-                None => Input::<String>::new()
-                    .with_prompt("URL")
-                    .interact_text()?,
+                None => Input::<String>::new().with_prompt("URL").interact_text()?,
             };
             let resolved_key = match api_key {
                 Some(k) => Some(k.clone()),
@@ -69,7 +67,11 @@ pub async fn run(cmd: &ProjectCommand) -> Result<()> {
                 } else {
                     ""
                 };
-                let key_info = if project.api_key.is_some() { " [api key set]" } else { "" };
+                let key_info = if project.api_key.is_some() {
+                    " [api key set]"
+                } else {
+                    ""
+                };
                 println!("  {}{} — {}{}", name, marker, project.url, key_info);
             }
         }
