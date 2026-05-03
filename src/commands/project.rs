@@ -67,7 +67,8 @@ pub async fn run(cmd: &ProjectCommand) -> Result<()> {
                 } else {
                     ""
                 };
-                println!("  {}{} — {}", name, marker, project.url);
+                let key_info = if project.api_key.is_some() { " [api key set]" } else { "" };
+                println!("  {}{} — {}{}", name, marker, project.url, key_info);
             }
         }
         ProjectCommand::Use { name } => {
