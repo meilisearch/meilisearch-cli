@@ -160,16 +160,14 @@ pub async fn run_interactive_search(client: MeiliClient, uid: &str) -> Result<()
                     needs_search = true;
                     state.last_search = Instant::now();
                 }
-                KeyCode::Up => {
-                    if state.selected > 0 {
-                        state.selected -= 1;
-                    }
+                KeyCode::Up if state.selected > 0 => {
+                    state.selected -= 1;
                 }
-                KeyCode::Down => {
-                    if state.selected + 1 < state.results.len() {
-                        state.selected += 1;
-                    }
+                KeyCode::Up => {}
+                KeyCode::Down if state.selected + 1 < state.results.len() => {
+                    state.selected += 1;
                 }
+                KeyCode::Down => {}
                 KeyCode::Enter => {
                     if state.expanded.is_some() {
                         state.expanded = None;

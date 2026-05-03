@@ -903,33 +903,34 @@ fn handle_editor_input(key: event::KeyEvent, state: &mut State) -> Action {
                 KeyCode::Esc => {
                     exit_editor(state);
                 }
-                KeyCode::Up if shift && *ordered => {
-                    // Reorder: swap with previous checked item
-                    if items[*cursor].checked && *cursor > 0 && items[*cursor - 1].checked {
-                        items.swap(*cursor, *cursor - 1);
-                        *cursor -= 1;
-                    }
+                KeyCode::Up
+                    if shift && *ordered
+                        && items[*cursor].checked
+                        && *cursor > 0
+                        && items[*cursor - 1].checked =>
+                {
+                    items.swap(*cursor, *cursor - 1);
+                    *cursor -= 1;
                 }
-                KeyCode::Down if shift && *ordered => {
-                    // Reorder: swap with next checked item
-                    if items[*cursor].checked
+                KeyCode::Up if shift && *ordered => {}
+                KeyCode::Down
+                    if shift && *ordered
+                        && items[*cursor].checked
                         && *cursor + 1 < items.len()
-                        && items[*cursor + 1].checked
-                    {
-                        items.swap(*cursor, *cursor + 1);
-                        *cursor += 1;
-                    }
+                        && items[*cursor + 1].checked =>
+                {
+                    items.swap(*cursor, *cursor + 1);
+                    *cursor += 1;
                 }
-                KeyCode::Up => {
-                    if *cursor > 0 {
-                        *cursor -= 1;
-                    }
+                KeyCode::Down if shift && *ordered => {}
+                KeyCode::Up if *cursor > 0 => {
+                    *cursor -= 1;
                 }
-                KeyCode::Down => {
-                    if *cursor + 1 < items.len() {
-                        *cursor += 1;
-                    }
+                KeyCode::Up => {}
+                KeyCode::Down if *cursor + 1 < items.len() => {
+                    *cursor += 1;
                 }
+                KeyCode::Down => {}
                 KeyCode::Char(' ') => {
                     if *ordered {
                         let name = items[*cursor].name.clone();
@@ -1014,37 +1015,31 @@ fn handle_editor_input(key: event::KeyEvent, state: &mut State) -> Action {
                     KeyCode::Esc => {
                         exit_editor(state);
                     }
-                    KeyCode::Up if shift => {
-                        if *cursor > 0 {
-                            items.swap(*cursor, *cursor - 1);
-                            *cursor -= 1;
-                        }
+                    KeyCode::Up if shift && *cursor > 0 => {
+                        items.swap(*cursor, *cursor - 1);
+                        *cursor -= 1;
                     }
-                    KeyCode::Down if shift => {
-                        if *cursor + 1 < items.len() {
-                            items.swap(*cursor, *cursor + 1);
-                            *cursor += 1;
-                        }
+                    KeyCode::Up if shift => {}
+                    KeyCode::Down if shift && *cursor + 1 < items.len() => {
+                        items.swap(*cursor, *cursor + 1);
+                        *cursor += 1;
                     }
-                    KeyCode::Up => {
-                        if *cursor > 0 {
-                            *cursor -= 1;
-                        }
+                    KeyCode::Down if shift => {}
+                    KeyCode::Up if *cursor > 0 => {
+                        *cursor -= 1;
                     }
-                    KeyCode::Down => {
-                        if *cursor + 1 < items.len() {
-                            *cursor += 1;
-                        }
+                    KeyCode::Up => {}
+                    KeyCode::Down if *cursor + 1 < items.len() => {
+                        *cursor += 1;
                     }
+                    KeyCode::Down => {}
                     KeyCode::Char('a') => {
                         *adding = true;
                     }
-                    KeyCode::Char('d') | KeyCode::Delete => {
-                        if !items.is_empty() {
-                            items.remove(*cursor);
-                            if *cursor >= items.len() && !items.is_empty() {
-                                *cursor = items.len() - 1;
-                            }
+                    KeyCode::Char('d') | KeyCode::Delete if !items.is_empty() => {
+                        items.remove(*cursor);
+                        if *cursor >= items.len() && !items.is_empty() {
+                            *cursor = items.len() - 1;
                         }
                     }
                     _ => {}
@@ -1057,16 +1052,14 @@ fn handle_editor_input(key: event::KeyEvent, state: &mut State) -> Action {
                 KeyCode::Esc => {
                     exit_editor(state);
                 }
-                KeyCode::Up => {
-                    if *cursor > 0 {
-                        *cursor -= 1;
-                    }
+                KeyCode::Up if *cursor > 0 => {
+                    *cursor -= 1;
                 }
-                KeyCode::Down => {
-                    if *cursor + 1 < options.len() {
-                        *cursor += 1;
-                    }
+                KeyCode::Up => {}
+                KeyCode::Down if *cursor + 1 < options.len() => {
+                    *cursor += 1;
                 }
+                KeyCode::Down => {}
                 KeyCode::Enter | KeyCode::Char(' ') => {
                     exit_editor(state);
                 }
