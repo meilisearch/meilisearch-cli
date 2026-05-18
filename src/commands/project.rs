@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Subcommand;
+use dialoguer::{Input, Password};
 
 use crate::config::{Config, Project};
 
@@ -9,7 +10,7 @@ pub enum ProjectCommand {
     Add {
         name: String,
         #[arg(long)]
-        url: String,
+        url: Option<String>,
         #[arg(long)]
         api_key: Option<String>,
     },
@@ -19,6 +20,8 @@ pub enum ProjectCommand {
     List,
     /// Set the default project
     Use { name: String },
+    /// Update an existing project
+    Update { name: String },
     /// Show the current default project
     Current,
 }
@@ -26,11 +29,25 @@ pub enum ProjectCommand {
 pub async fn run(cmd: &ProjectCommand) -> Result<()> {
     match cmd {
         ProjectCommand::Add { name, url, api_key } => {
+            let resolved_url = match url {
+                Some(u) => u.clone(),
+                None => Input::<String>::new().with_prompt("URL").interact_text()?,
+            };
+            let resolved_key = match api_key {
+                Some(k) => Some(k.clone()),
+                None => {
+                    let key: String = Password::new()
+                        .with_prompt("API key (leave empty for none)")
+                        .allow_empty_password(true)
+                        .interact()?;
+                    if key.is_empty() { None } else { Some(key) }
+                }
+            };
             let mut config = Config::load()?;
             let project = Project {
                 r#type: None,
-                url: url.clone(),
-                api_key: api_key.clone(),
+                url: resolved_url,
+                api_key: resolved_key,
                 data_dir: None,
                 binary: None,
             };
@@ -50,13 +67,40 @@ pub async fn run(cmd: &ProjectCommand) -> Result<()> {
                 } else {
                     ""
                 };
-                println!("  {}{} — {}", name, marker, project.url);
+                let key_info = if project.api_key.is_some() {
+                    " [api key set]"
+                } else {
+                    ""
+                };
+                println!("  {}{} — {}{}", name, marker, project.url, key_info);
             }
         }
         ProjectCommand::Use { name } => {
             let mut config = Config::load()?;
             config.set_default(name)?;
             println!("Default project set to '{}'.", name);
+        }
+        ProjectCommand::Update { name } => {
+            let config = Config::load()?;
+            let (_, existing) = config.get_project(Some(name))?;
+            let url = Input::<String>::new()
+                .with_prompt(format!("URL (current: {})", existing.url))
+                .interact_text()?;
+            let key: String = Password::new()
+                .with_prompt("API key (leave empty to remove)")
+                .allow_empty_password(true)
+                .interact()?;
+            let api_key = if key.is_empty() { None } else { Some(key) };
+            let project = Project {
+                r#type: existing.r#type.clone(),
+                url,
+                api_key,
+                data_dir: existing.data_dir.clone(),
+                binary: existing.binary.clone(),
+            };
+            let mut config = Config::load()?;
+            config.update_project(name, project)?;
+            println!("Project '{}' updated.", name);
         }
         ProjectCommand::Current => {
             let config = Config::load()?;

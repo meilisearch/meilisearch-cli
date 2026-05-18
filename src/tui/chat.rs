@@ -426,8 +426,8 @@ pub async fn run_interactive_chat(
                     state.show_sources = !state.show_sources;
                 }
                 KeyCode::Esc => break,
-                KeyCode::Enter if !state.loading => {
-                    if !state.input.is_empty() {
+                KeyCode::Enter if !state.loading && !state.input.is_empty() => {
+                    {
                         // Push to history
                         state.input_history.push(state.input.clone());
                         state.history_pos = state.input_history.len();
@@ -576,32 +576,36 @@ pub async fn run_interactive_chat(
                         state.auto_scroll = true;
                     }
                 }
+                KeyCode::Up
+                    if !state.loading
+                        && !state.input_history.is_empty()
+                        && state.history_pos > 0 =>
+                {
+                    // First time pressing up: stash current input
+                    if state.history_pos == state.input_history.len() {
+                        state.input_stash = state.input.clone();
+                    }
+                    state.history_pos -= 1;
+                    state.input = state.input_history[state.history_pos].clone();
+                }
+                KeyCode::Up if !state.loading => {}
+                KeyCode::Down
+                    if !state.loading && state.history_pos < state.input_history.len() =>
+                {
+                    state.history_pos += 1;
+                    if state.history_pos == state.input_history.len() {
+                        // Restore stashed input
+                        state.input = state.input_stash.clone();
+                    } else {
+                        state.input = state.input_history[state.history_pos].clone();
+                    }
+                }
+                KeyCode::Down if !state.loading => {}
                 KeyCode::Char(c) if !state.loading => {
                     state.input.push(c);
                 }
                 KeyCode::Backspace if !state.loading => {
                     state.input.pop();
-                }
-                KeyCode::Up if !state.loading => {
-                    if !state.input_history.is_empty() && state.history_pos > 0 {
-                        // First time pressing up: stash current input
-                        if state.history_pos == state.input_history.len() {
-                            state.input_stash = state.input.clone();
-                        }
-                        state.history_pos -= 1;
-                        state.input = state.input_history[state.history_pos].clone();
-                    }
-                }
-                KeyCode::Down if !state.loading => {
-                    if state.history_pos < state.input_history.len() {
-                        state.history_pos += 1;
-                        if state.history_pos == state.input_history.len() {
-                            // Restore stashed input
-                            state.input = state.input_stash.clone();
-                        } else {
-                            state.input = state.input_history[state.history_pos].clone();
-                        }
-                    }
                 }
                 KeyCode::Up => {
                     state.auto_scroll = false;
