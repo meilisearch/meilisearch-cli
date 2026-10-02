@@ -1,5 +1,7 @@
 use anyhow::Result;
 use clap::Subcommand;
+use futures_util::StreamExt;
+use serde_json::json;
 
 use super::{Cli, build_client, print_json};
 
@@ -10,11 +12,11 @@ pub enum LogCommand {
         /// Log target (e.g. "info", "meilisearch=debug")
         target: String,
     },
-    /// Start streaming logs
+    /// Stream logs to stdout until interrupted (NDJSON with --mode json)
     Stream {
         /// Log target (e.g. "info", "meilisearch=debug")
         target: String,
-        /// Output mode (human or json)
+        /// Output mode: human, json or profile (default: json when output is JSON)
         #[arg(long)]
         mode: Option<String>,
     },
@@ -28,21 +30,35 @@ pub async fn run(cli: &Cli, cmd: &LogCommand) -> Result<()> {
         LogCommand::Stderr { target } => {
             let result = client.update_log_stderr(target).await?;
             if result.is_null() {
-                println!("Log target updated.");
+                crate::output::emit(&json!({ "updated": true, "target": target }), || {
+                    "Log target updated.".to_string()
+                });
             } else {
-                print_json(&result, cli.raw);
+                print_json(&result);
             }
         }
         LogCommand::Stream { target, mode } => {
-            let result = client.stream_logs(target, mode.as_deref()).await?;
-            print_json(&result, cli.raw);
+            let mode = mode
+                .clone()
+                .or_else(|| crate::output::is_json().then(|| "json".to_string()));
+            let resp = client.stream_logs(target, mode.as_deref()).await?;
+            crate::status!("Streaming logs (Ctrl+C to stop)...");
+            let mut stream = resp.bytes_stream();
+            let mut out = std::io::stdout();
+            while let Some(chunk) = stream.next().await {
+                use std::io::Write;
+                out.write_all(&chunk?)?;
+                out.flush()?;
+            }
         }
         LogCommand::Stop => {
             let result = client.stop_log_stream().await?;
             if result.is_null() {
-                println!("Log stream stopped.");
+                crate::output::emit(&json!({ "stopped": true }), || {
+                    "Log stream stopped.".to_string()
+                });
             } else {
-                print_json(&result, cli.raw);
+                print_json(&result);
             }
         }
     }

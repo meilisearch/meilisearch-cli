@@ -1,7 +1,21 @@
 use std::process::Command;
 
+/// Server under test: MSC_TEST_URL, defaulting to a local instance. The config
+/// file is isolated so tests never read or modify the user's projects.
+fn test_url() -> String {
+    std::env::var("MSC_TEST_URL").unwrap_or_else(|_| "http://localhost:7700".to_string())
+}
+
 fn cli() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_msc"))
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_msc"));
+    cmd.env("MSC_URL", test_url())
+        .env(
+            "MSC_CONFIG",
+            format!("{}/msc-config.toml", env!("CARGO_TARGET_TMPDIR")),
+        )
+        .env_remove("MSC_API_KEY")
+        .env_remove("MSC_PROJECT");
+    cmd
 }
 
 fn unique_index() -> String {
@@ -20,10 +34,9 @@ fn test_health() {
 fn test_version() {
     let output = cli().args(["version"]).output().unwrap();
     assert!(output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("msc"));
-    assert!(stderr.contains("meilisearch-cli"));
-    assert!(stderr.contains("meilisearch server"));
+    let v: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(v["cli"], env!("CARGO_PKG_VERSION"));
+    assert!(v["server"]["pkgVersion"].is_string());
 }
 
 #[test]
@@ -92,7 +105,7 @@ fn test_document_crud() {
         .unwrap();
 
     // Add documents via stdin
-    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_msc"))
+    let mut child = cli()
         .args(["document", "add", &idx])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -110,13 +123,13 @@ fn test_document_crud() {
 
     // Wait for task
     let stdout = String::from_utf8_lossy(&output.stdout);
-    if let Ok(task) = serde_json::from_str::<serde_json::Value>(&stdout) {
-        if let Some(task_uid) = task["taskUid"].as_u64() {
-            let _ = cli()
-                .args(["task", "wait", &task_uid.to_string()])
-                .output()
-                .unwrap();
-        }
+    if let Ok(task) = serde_json::from_str::<serde_json::Value>(&stdout)
+        && let Some(task_uid) = task["taskUid"].as_u64()
+    {
+        let _ = cli()
+            .args(["task", "wait", &task_uid.to_string()])
+            .output()
+            .unwrap();
     }
 
     // List documents
@@ -157,7 +170,7 @@ fn test_search() {
         .output()
         .unwrap();
 
-    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_msc"))
+    let mut child = cli()
         .args(["document", "add", &idx])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -172,13 +185,13 @@ fn test_search() {
     drop(child.stdin.take());
     let output = child.wait_with_output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    if let Ok(task) = serde_json::from_str::<serde_json::Value>(&stdout) {
-        if let Some(task_uid) = task["taskUid"].as_u64() {
-            let _ = cli()
-                .args(["task", "wait", &task_uid.to_string()])
-                .output()
-                .unwrap();
-        }
+    if let Ok(task) = serde_json::from_str::<serde_json::Value>(&stdout)
+        && let Some(task_uid) = task["taskUid"].as_u64()
+    {
+        let _ = cli()
+            .args(["task", "wait", &task_uid.to_string()])
+            .output()
+            .unwrap();
     }
 
     // Search
@@ -245,7 +258,7 @@ fn test_raw_output() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     // Raw output should be compact JSON
-    let parsed: serde_json::Value = serde_json::from_str(&stdout.trim()).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
     assert_eq!(parsed["status"], "available");
 }
 

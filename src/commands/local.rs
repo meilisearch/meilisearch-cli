@@ -1,5 +1,12 @@
 use anyhow::{Context, Result, bail};
 use clap::Subcommand;
+use serde_json::{Value, json};
+
+use super::Cli;
+use crate::output::emit;
+use crate::status;
+
+const LOCAL_URL: &str = "http://127.0.0.1:7700";
 
 #[derive(Subcommand)]
 pub enum LocalCommand {
@@ -18,7 +25,11 @@ pub enum LocalCommand {
         follow: bool,
     },
     /// Reset local data (wipe and restart fresh)
-    Reset,
+    Reset {
+        /// Show what would be wiped without doing it
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Upgrade local Meilisearch to latest version
     Upgrade,
 }
@@ -61,39 +72,46 @@ fn container_exists() -> bool {
         .unwrap_or(false)
 }
 
-async fn start_docker() -> Result<()> {
+/// Run a docker command without letting its output reach our stdout.
+fn docker(args: &[&str]) -> Result<()> {
+    let output = std::process::Command::new("docker")
+        .args(args)
+        .output()
+        .context("Failed to run docker")?;
+    if !output.status.success() {
+        bail!(
+            "`docker {}` failed: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    Ok(())
+}
+
+async fn start_docker() -> Result<Value> {
     let data = data_dir()?;
     std::fs::create_dir_all(&data)?;
 
     if container_running() {
-        println!("Local Meilisearch is already running.");
-        return Ok(());
+        return Ok(
+            json!({ "status": "running", "mode": "docker", "url": LOCAL_URL, "alreadyRunning": true }),
+        );
     }
 
     if container_exists() {
-        let status = std::process::Command::new("docker")
-            .args(["start", "meilisearch-local"])
-            .status()?;
-        if !status.success() {
-            bail!("Failed to start existing container");
-        }
+        docker(&["start", "meilisearch-local"])?;
     } else {
-        let status = std::process::Command::new("docker")
-            .args([
-                "run",
-                "-d",
-                "--name",
-                "meilisearch-local",
-                "-p",
-                "7700:7700",
-                "-v",
-                &format!("{}:/meili_data", data.display()),
-                "getmeili/meilisearch:latest",
-            ])
-            .status()?;
-        if !status.success() {
-            bail!("Failed to start Meilisearch container");
-        }
+        docker(&[
+            "run",
+            "-d",
+            "--name",
+            "meilisearch-local",
+            "-p",
+            "7700:7700",
+            "-v",
+            &format!("{}:/meili_data", data.display()),
+            "getmeili/meilisearch:latest",
+        ])?;
     }
 
     // Wait for health
@@ -103,14 +121,13 @@ async fn start_docker() -> Result<()> {
         if let Ok(resp) = client.get("http://127.0.0.1:7700/health").send().await
             && resp.status().is_success()
         {
-            println!("✓ Local Meilisearch started (http://127.0.0.1:7700)");
-            return Ok(());
+            return Ok(json!({ "status": "running", "mode": "docker", "url": LOCAL_URL }));
         }
     }
     bail!("Meilisearch started but health check timed out");
 }
 
-async fn start_binary() -> Result<()> {
+async fn start_binary() -> Result<Value> {
     let data = data_dir()?;
     std::fs::create_dir_all(&data)?;
 
@@ -120,7 +137,7 @@ async fn start_binary() -> Result<()> {
     let binary = bin_dir.join("meilisearch-server");
 
     if !binary.exists() {
-        println!("Downloading Meilisearch binary...");
+        status!("Downloading Meilisearch binary...");
         download_binary(&binary).await?;
     }
 
@@ -149,8 +166,9 @@ async fn start_binary() -> Result<()> {
         if let Ok(resp) = client.get("http://127.0.0.1:7700/health").send().await
             && resp.status().is_success()
         {
-            println!("✓ Local Meilisearch started via binary (http://127.0.0.1:7700)");
-            return Ok(());
+            return Ok(
+                json!({ "status": "running", "mode": "binary", "url": LOCAL_URL, "pid": child.id() }),
+            );
         }
     }
     bail!("Meilisearch binary started but health check timed out");
@@ -182,7 +200,7 @@ async fn download_binary(dest: &std::path::Path) -> Result<()> {
         os, arch
     );
 
-    println!("Downloading from {url}...");
+    status!("Downloading from {url}...");
     let resp = reqwest::get(&url).await?;
     if !resp.status().is_success() {
         bail!("Download failed: HTTP {}", resp.status());
@@ -197,81 +215,126 @@ async fn download_binary(dest: &std::path::Path) -> Result<()> {
         std::fs::set_permissions(dest, std::fs::Permissions::from_mode(0o755))?;
     }
 
-    println!("Downloaded to {}", dest.display());
+    status!("Downloaded to {}", dest.display());
     Ok(())
 }
 
-async fn stop() -> Result<()> {
+async fn stop() -> Result<Value> {
     if container_running() {
-        let status = std::process::Command::new("docker")
-            .args(["stop", "meilisearch-local"])
-            .status()?;
-        if status.success() {
-            println!("Local Meilisearch stopped.");
-        } else {
-            bail!("Failed to stop container");
-        }
+        docker(&["stop", "meilisearch-local"])?;
+        Ok(json!({ "status": "stopped", "mode": "docker" }))
     } else {
         let pid_file = data_dir()?.join("meili.pid");
         if pid_file.exists() {
             let pid = std::fs::read_to_string(&pid_file)?;
             let _ = std::process::Command::new("kill").arg(pid.trim()).status();
             let _ = std::fs::remove_file(&pid_file);
-            println!("Local Meilisearch stopped.");
+            Ok(json!({ "status": "stopped", "mode": "binary" }))
         } else {
-            println!("Local Meilisearch is not running.");
+            Ok(json!({ "status": "stopped", "wasRunning": false }))
         }
     }
-    Ok(())
 }
 
-async fn start() -> Result<()> {
+async fn start() -> Result<Value> {
     if docker_available() {
-        println!("Starting local Meilisearch with Docker...");
+        status!("Starting local Meilisearch with Docker...");
         start_docker().await
     } else {
-        println!("Docker not available. Falling back to binary...");
+        status!("Docker not available. Falling back to binary...");
         start_binary().await
     }
 }
 
-pub async fn run(cmd: &LocalCommand) -> Result<()> {
+fn describe(v: &Value) -> String {
+    match v["status"].as_str() {
+        Some("running") if v["alreadyRunning"] == true => {
+            "Local Meilisearch is already running.".to_string()
+        }
+        Some("running") => format!(
+            "✓ Local Meilisearch started via {} ({})",
+            v["mode"].as_str().unwrap_or("?"),
+            LOCAL_URL
+        ),
+        Some("stopped") if v["wasRunning"] == false => {
+            "Local Meilisearch is not running.".to_string()
+        }
+        Some("stopped") => "Local Meilisearch stopped.".to_string(),
+        _ => v.to_string(),
+    }
+}
+
+fn dir_size(path: &std::path::Path) -> u64 {
+    let Ok(entries) = std::fs::read_dir(path) else {
+        return 0;
+    };
+    entries
+        .flatten()
+        .map(|e| match e.metadata() {
+            Ok(m) if m.is_dir() => dir_size(&e.path()),
+            Ok(m) => m.len(),
+            Err(_) => 0,
+        })
+        .sum()
+}
+
+pub async fn run(_cli: &Cli, cmd: &LocalCommand) -> Result<()> {
     match cmd {
-        LocalCommand::Start => start().await,
-        LocalCommand::Stop => stop().await,
+        LocalCommand::Start => {
+            let v = start().await?;
+            emit(&v, || describe(&v));
+        }
+        LocalCommand::Stop => {
+            let v = stop().await?;
+            emit(&v, || describe(&v));
+        }
         LocalCommand::Restart => {
             stop().await?;
-            start().await
+            let v = start().await?;
+            emit(&v, || describe(&v));
         }
         LocalCommand::Status => {
-            if container_running() {
+            let mut v = if container_running() {
                 let output = std::process::Command::new("docker")
                     .args([
                         "inspect",
                         "--format",
-                        "{{.State.Status}} since {{.State.StartedAt}}",
+                        "{{.State.StartedAt}}",
                         "meilisearch-local",
                     ])
                     .output()?;
-                let info = String::from_utf8_lossy(&output.stdout);
-                println!("Mode: Docker");
-                println!("Status: {}", info.trim());
-
-                if let Ok(resp) = reqwest::get("http://127.0.0.1:7700/version").await
-                    && let Ok(v) = resp.json::<serde_json::Value>().await
-                {
-                    println!("Version: {}", v["pkgVersion"].as_str().unwrap_or("unknown"));
-                }
+                json!({
+                    "status": "running",
+                    "mode": "docker",
+                    "startedAt": String::from_utf8_lossy(&output.stdout).trim(),
+                })
+            } else if data_dir()?.join("meili.pid").exists() {
+                json!({ "status": "running", "mode": "binary" })
             } else {
-                let pid_file = data_dir()?.join("meili.pid");
-                if pid_file.exists() {
-                    println!("Mode: Binary");
-                    println!("Status: running (PID file exists)");
-                } else {
-                    println!("Status: stopped");
+                json!({ "status": "stopped" })
+            };
+            if v["status"] == "running" {
+                v["url"] = json!(LOCAL_URL);
+                if let Ok(resp) = reqwest::get(format!("{LOCAL_URL}/version")).await
+                    && let Ok(ver) = resp.json::<Value>().await
+                {
+                    v["version"] = ver["pkgVersion"].clone();
                 }
             }
-            Ok(())
+            emit(&v, || {
+                let mut out = String::new();
+                if let Some(mode) = v["mode"].as_str() {
+                    out.push_str(&format!("Mode: {mode}\n"));
+                }
+                out.push_str(&format!("Status: {}", v["status"].as_str().unwrap_or("?")));
+                if let Some(since) = v["startedAt"].as_str() {
+                    out.push_str(&format!(" since {since}"));
+                }
+                if let Some(ver) = v["version"].as_str() {
+                    out.push_str(&format!("\nVersion: {ver}"));
+                }
+                out
+            });
         }
         LocalCommand::Logs { follow } => {
             if container_exists() {
@@ -290,42 +353,49 @@ pub async fn run(cmd: &LocalCommand) -> Result<()> {
                     let content = std::fs::read_to_string(&log_file)?;
                     print!("{content}");
                 } else {
-                    println!("No logs found.");
+                    status!("No logs found.");
                 }
             }
-            Ok(())
         }
-        LocalCommand::Reset => {
+        LocalCommand::Reset { dry_run } => {
+            let data = data_dir()?;
+            if *dry_run {
+                let v = json!({
+                    "dryRun": true,
+                    "action": "local.reset",
+                    "dataDir": data.display().to_string(),
+                    "bytes": dir_size(&data),
+                    "removesContainer": container_exists(),
+                });
+                emit(&v, || {
+                    format!(
+                        "Would wipe {} ({} bytes) and restart.",
+                        data.display(),
+                        v["bytes"]
+                    )
+                });
+                return Ok(());
+            }
             stop().await?;
             if container_exists() {
-                let _ = std::process::Command::new("docker")
-                    .args(["rm", "meilisearch-local"])
-                    .status();
+                let _ = docker(&["rm", "meilisearch-local"]);
             }
-            let data = data_dir()?;
             if data.exists() {
                 std::fs::remove_dir_all(&data)?;
             }
-            println!("Local data wiped.");
-            start().await
+            status!("Local data wiped.");
+            let mut v = start().await?;
+            v["reset"] = json!(true);
+            emit(&v, || describe(&v));
         }
         LocalCommand::Upgrade => {
             if docker_available() {
-                println!("Pulling latest Meilisearch image...");
-                let status = std::process::Command::new("docker")
-                    .args(["pull", "getmeili/meilisearch:latest"])
-                    .status()?;
-                if !status.success() {
-                    bail!("Failed to pull latest image");
-                }
+                status!("Pulling latest Meilisearch image...");
+                docker(&["pull", "getmeili/meilisearch:latest"])?;
                 stop().await?;
                 if container_exists() {
-                    let _ = std::process::Command::new("docker")
-                        .args(["rm", "meilisearch-local"])
-                        .status();
+                    let _ = docker(&["rm", "meilisearch-local"]);
                 }
-                start().await?;
-                println!("✓ Upgraded to latest version.");
             } else {
                 let bin_dir = dirs::home_dir()
                     .context("Could not determine home directory")?
@@ -336,10 +406,11 @@ pub async fn run(cmd: &LocalCommand) -> Result<()> {
                     std::fs::remove_file(&binary)?;
                 }
                 download_binary(&binary).await?;
-                start().await?;
-                println!("✓ Upgraded to latest version.");
             }
-            Ok(())
+            let mut v = start().await?;
+            v["upgraded"] = json!(true);
+            emit(&v, || "✓ Upgraded to latest version.".to_string());
         }
     }
+    Ok(())
 }

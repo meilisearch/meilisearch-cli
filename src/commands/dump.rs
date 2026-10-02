@@ -16,11 +16,11 @@ pub async fn run(cli: &Cli, cmd: &DumpCommand) -> Result<()> {
     match cmd {
         DumpCommand::Create => {
             let result = client.create_dump().await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
         DumpCommand::Snapshot => {
             let result = client.create_snapshot().await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
     }
     Ok(())

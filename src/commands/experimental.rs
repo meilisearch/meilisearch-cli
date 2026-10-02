@@ -11,6 +11,7 @@ pub enum ExperimentalCommand {
     Get,
     /// Configure experimental features (reads JSON from file or stdin)
     Update {
+        /// JSON file (reads stdin if omitted)
         #[arg(long)]
         file: Option<PathBuf>,
     },
@@ -21,12 +22,12 @@ pub async fn run(cli: &Cli, cmd: &ExperimentalCommand) -> Result<()> {
     match cmd {
         ExperimentalCommand::Get => {
             let result = client.get_experimental_features().await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
         ExperimentalCommand::Update { file } => {
             let features = read_json_input(file.as_deref())?;
             let result = client.update_experimental_features(&features).await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
     }
     Ok(())

@@ -1,29 +1,69 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
-use clap::Subcommand;
+use anyhow::Result;
+use clap::{Subcommand, ValueEnum};
+use serde_json::json;
 
-use super::{Cli, build_client, print_json};
+use super::{Cli, build_client, print_json, read_input};
+
+/// Document payload format.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum DocFormat {
+    Json,
+    Ndjson,
+    Csv,
+}
+
+impl DocFormat {
+    pub fn content_type(self) -> &'static str {
+        match self {
+            DocFormat::Json => "application/json",
+            DocFormat::Ndjson => "application/x-ndjson",
+            DocFormat::Csv => "text/csv",
+        }
+    }
+
+    /// Explicit format, else guessed from the file extension, else JSON.
+    pub fn resolve(explicit: Option<DocFormat>, file: Option<&std::path::Path>) -> DocFormat {
+        explicit.unwrap_or_else(|| {
+            match file.and_then(|p| p.extension()).and_then(|e| e.to_str()) {
+                Some("csv") => DocFormat::Csv,
+                Some("ndjson") | Some("jsonl") => DocFormat::Ndjson,
+                _ => DocFormat::Json,
+            }
+        })
+    }
+}
 
 #[derive(Subcommand)]
 pub enum DocumentCommand {
-    /// Add or replace documents
+    /// Add or replace documents from a file or stdin
     Add {
         /// Index UID
         #[arg(value_name = "INDEX_UID")]
         uid: String,
+        /// Documents file (reads stdin if omitted)
         #[arg(long)]
         file: Option<PathBuf>,
+        /// Payload format (default: from file extension, else json)
+        #[arg(long, value_enum)]
+        format: Option<DocFormat>,
+        /// Primary key attribute (only used if the index has none yet)
         #[arg(long)]
         primary_key: Option<String>,
     },
-    /// Add or update documents (partial update)
+    /// Add or update documents (partial update) from a file or stdin
     Update {
         /// Index UID
         #[arg(value_name = "INDEX_UID")]
         uid: String,
+        /// Documents file (reads stdin if omitted)
         #[arg(long)]
         file: Option<PathBuf>,
+        /// Payload format (default: from file extension, else json)
+        #[arg(long, value_enum)]
+        format: Option<DocFormat>,
+        /// Primary key attribute (only used if the index has none yet)
         #[arg(long)]
         primary_key: Option<String>,
     },
@@ -41,10 +81,13 @@ pub enum DocumentCommand {
         /// Index UID
         #[arg(value_name = "INDEX_UID")]
         uid: String,
+        /// Number of documents to skip
         #[arg(long)]
         offset: Option<u64>,
+        /// Maximum number of documents to return
         #[arg(long)]
         limit: Option<u64>,
+        /// Comma-separated attributes to return
         #[arg(long)]
         fields: Option<String>,
     },
@@ -53,12 +96,16 @@ pub enum DocumentCommand {
         /// Index UID
         #[arg(value_name = "INDEX_UID")]
         uid: String,
+        /// Filter expression (e.g. "genre = horror")
         #[arg(long)]
         filter: Option<String>,
+        /// Number of documents to skip
         #[arg(long)]
         offset: Option<u64>,
+        /// Maximum number of documents to return
         #[arg(long)]
         limit: Option<u64>,
+        /// Comma-separated attributes to return
         #[arg(long, value_delimiter = ',')]
         fields: Option<Vec<String>>,
     },
@@ -76,6 +123,9 @@ pub enum DocumentCommand {
         /// Index UID
         #[arg(value_name = "INDEX_UID")]
         uid: String,
+        /// Show how many documents would be deleted without deleting them
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Delete documents matching a filter
     DeleteByFilter {
@@ -84,6 +134,9 @@ pub enum DocumentCommand {
         uid: String,
         /// Filter expression (e.g. "genre = horror")
         filter: String,
+        /// Show how many documents match without deleting them
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Delete documents by batch of IDs
     DeleteBatch {
@@ -113,38 +166,19 @@ pub async fn run(cli: &Cli, cmd: &DocumentCommand) -> Result<()> {
         DocumentCommand::Add {
             uid,
             file,
+            format,
             primary_key,
         } => {
-            let data = if let Some(path) = file {
-                std::fs::read(path)
-                    .with_context(|| format!("Failed to read file: {}", path.display()))?
-            } else {
-                use std::io::Read;
-                let mut buf = Vec::new();
-                std::io::stdin()
-                    .read_to_end(&mut buf)
-                    .context("Failed to read from stdin")?;
-                buf
-            };
-
-            let content_type = if let Some(path) = file {
-                match path.extension().and_then(|e| e.to_str()) {
-                    Some("csv") => "text/csv",
-                    Some("ndjson") | Some("jsonl") => "application/x-ndjson",
-                    _ => "application/json",
-                }
-            } else {
-                "application/json"
-            };
-
+            let format = DocFormat::resolve(*format, file.as_deref());
+            let data = read_input(file.as_deref())?;
             let result = client
-                .add_documents_raw(uid, data, content_type, primary_key.as_deref())
+                .add_documents_raw(uid, data, format.content_type(), primary_key.as_deref())
                 .await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
         DocumentCommand::Get { uid, id } => {
             let result = client.get_document(uid, id).await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
         DocumentCommand::List {
             uid,
@@ -155,39 +189,25 @@ pub async fn run(cli: &Cli, cmd: &DocumentCommand) -> Result<()> {
             let result = client
                 .get_documents(uid, *offset, *limit, fields.as_deref())
                 .await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
         DocumentCommand::Update {
             uid,
             file,
+            format,
             primary_key,
         } => {
-            let data = if let Some(path) = file {
-                std::fs::read(path)
-                    .with_context(|| format!("Failed to read file: {}", path.display()))?
-            } else {
-                use std::io::Read;
-                let mut buf = Vec::new();
-                std::io::stdin()
-                    .read_to_end(&mut buf)
-                    .context("Failed to read from stdin")?;
-                buf
-            };
-
-            let content_type = if let Some(path) = file {
-                match path.extension().and_then(|e| e.to_str()) {
-                    Some("csv") => "text/csv",
-                    Some("ndjson") | Some("jsonl") => "application/x-ndjson",
-                    _ => "application/json",
-                }
-            } else {
-                "application/json"
-            };
-
+            let format = DocFormat::resolve(*format, file.as_deref());
+            let data = read_input(file.as_deref())?;
             let result = client
-                .add_or_update_documents_raw(uid, data, content_type, primary_key.as_deref())
+                .add_or_update_documents_raw(
+                    uid,
+                    data,
+                    format.content_type(),
+                    primary_key.as_deref(),
+                )
                 .await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
         DocumentCommand::Fetch {
             uid,
@@ -196,39 +216,65 @@ pub async fn run(cli: &Cli, cmd: &DocumentCommand) -> Result<()> {
             limit,
             fields,
         } => {
-            let mut body = serde_json::json!({});
+            let mut body = json!({});
             if let Some(f) = filter {
-                body["filter"] = serde_json::json!(f);
+                body["filter"] = json!(f);
             }
             if let Some(o) = offset {
-                body["offset"] = serde_json::json!(o);
+                body["offset"] = json!(o);
             }
             if let Some(l) = limit {
-                body["limit"] = serde_json::json!(l);
+                body["limit"] = json!(l);
             }
             if let Some(f) = fields {
-                body["fields"] = serde_json::json!(f);
+                body["fields"] = json!(f);
             }
             let result = client.fetch_documents(uid, &body).await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
         DocumentCommand::Delete { uid, id } => {
             let result = client.delete_document(uid, id).await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
-        DocumentCommand::DeleteAll { uid } => {
+        DocumentCommand::DeleteAll { uid, dry_run } => {
+            if *dry_run {
+                let stats = client.index_stats(uid).await?;
+                print_json(&json!({
+                    "dryRun": true,
+                    "action": "documents.deleteAll",
+                    "indexUid": uid,
+                    "matchedDocuments": stats["numberOfDocuments"],
+                }));
+                return Ok(());
+            }
             let result = client.delete_all_documents(uid).await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
-        DocumentCommand::DeleteByFilter { uid, filter } => {
+        DocumentCommand::DeleteByFilter {
+            uid,
+            filter,
+            dry_run,
+        } => {
+            if *dry_run {
+                let matched = client
+                    .fetch_documents(uid, &json!({ "filter": filter, "limit": 0 }))
+                    .await?;
+                print_json(&json!({
+                    "dryRun": true,
+                    "action": "documents.deleteByFilter",
+                    "indexUid": uid,
+                    "filter": filter,
+                    "matchedDocuments": matched["total"],
+                }));
+                return Ok(());
+            }
             let result = client.delete_documents_by_filter(uid, filter).await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
         DocumentCommand::DeleteBatch { uid, ids } => {
-            let id_values: Vec<serde_json::Value> =
-                ids.iter().map(|id| serde_json::json!(id)).collect();
+            let id_values: Vec<serde_json::Value> = ids.iter().map(|id| json!(id)).collect();
             let result = client.delete_documents_batch(uid, &id_values).await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
         DocumentCommand::Edit {
             uid,
@@ -238,7 +284,7 @@ pub async fn run(cli: &Cli, cmd: &DocumentCommand) -> Result<()> {
             let result = client
                 .edit_documents(uid, function, filter.as_deref())
                 .await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
     }
     Ok(())

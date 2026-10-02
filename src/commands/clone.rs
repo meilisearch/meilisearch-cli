@@ -1,10 +1,11 @@
-use anyhow::{Result, bail};
+use anyhow::Result;
 use clap::Args;
+use serde_json::json;
 
-use crate::client::MeiliClient;
-use crate::config::Config;
-
-use super::print_json;
+use super::{client_for, print_json, resolve_target};
+use crate::client::ensure_succeeded;
+use crate::error::is_not_found;
+use crate::status;
 
 #[derive(Args)]
 pub struct CloneArgs {
@@ -21,48 +22,60 @@ pub struct CloneArgs {
     /// Destination project
     #[arg(long)]
     pub to: Option<String>,
+
+    /// Show what would be cloned without writing anything
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 pub async fn run(cli: &super::Cli, args: &CloneArgs) -> Result<()> {
-    let config = Config::load()?;
+    let from = resolve_target(cli, args.from.as_deref())?;
+    let to = resolve_target(cli, args.to.as_deref().or(args.from.as_deref()))?;
 
-    let from_name = args
-        .from
-        .as_deref()
-        .or(cli.project.as_deref())
-        .unwrap_or(&config.default);
-    let to_name = args.to.as_deref().unwrap_or(from_name);
+    // This command manages task waiting itself.
+    let src_client = client_for(cli, &from)?.without_wait();
+    let dst_client = client_for(cli, &to)?.without_wait();
+    let timeout = cli.wait_timeout;
 
-    let (_, from_proj) = config.get_project(Some(from_name))?;
-    let (_, to_proj) = config.get_project(Some(to_name))?;
-
-    let src_client = MeiliClient::new(&from_proj.url, from_proj.api_key.as_deref())?;
-    let dst_client = MeiliClient::new(&to_proj.url, to_proj.api_key.as_deref())?;
-
-    println!(
-        "Cloning '{}' ({}) → '{}' ({})",
-        args.source_uid, from_name, args.dest_uid, to_name
-    );
-
-    // 1. Get settings from source
     let settings = src_client.get_settings(&args.source_uid).await?;
 
-    // 2. Create destination index
+    if args.dry_run {
+        let stats = src_client.index_stats(&args.source_uid).await?;
+        let dest_exists = match dst_client.get_index(&args.dest_uid).await {
+            Ok(_) => true,
+            Err(e) if is_not_found(&e) => false,
+            Err(e) => return Err(e),
+        };
+        print_json(&json!({
+            "dryRun": true,
+            "action": "clone",
+            "source": { "project": from.name, "indexUid": args.source_uid },
+            "destination": { "project": to.name, "indexUid": args.dest_uid, "exists": dest_exists },
+            "numberOfDocuments": stats["numberOfDocuments"],
+            "settings": settings,
+        }));
+        return Ok(());
+    }
+
+    status!(
+        "Cloning '{}' ({}) → '{}' ({})",
+        args.source_uid,
+        from.name,
+        args.dest_uid,
+        to.name
+    );
+
+    // Creating may fail if the index already exists; settings are applied either way.
     let _ = dst_client.create_index(&args.dest_uid, None).await;
 
-    // 3. Apply settings
     let task = dst_client
         .update_settings(&args.dest_uid, &settings)
         .await?;
     if let Some(task_uid) = task["taskUid"].as_u64() {
-        let result = dst_client.wait_for_task(task_uid, 60_000).await?;
-        if result["status"].as_str() == Some("failed") {
-            bail!("Settings update failed: {:?}", result["error"]);
-        }
+        dst_client.wait_for_success(task_uid, timeout).await?;
     }
-    println!("  ✓ Settings synced");
+    status!("  ✓ Settings synced");
 
-    // 4. Export documents from source using pagination
     let mut offset = 0u64;
     let batch_limit = 1000u64;
     let mut total_docs = 0u64;
@@ -79,16 +92,14 @@ pub async fn run(cli: &super::Cli, args: &CloneArgs) -> Result<()> {
             break;
         }
 
-        let docs_array = serde_json::json!(results.unwrap());
+        let docs_array = json!(results.unwrap());
         let task = dst_client
             .add_documents(&args.dest_uid, &docs_array, None)
             .await?;
 
         if let Some(task_uid) = task["taskUid"].as_u64() {
-            let result = dst_client.wait_for_task(task_uid, 300_000).await?;
-            if result["status"].as_str() == Some("failed") {
-                bail!("Document import failed: {:?}", result["error"]);
-            }
+            let finished = dst_client.wait_for_task(task_uid, timeout).await?;
+            ensure_succeeded(finished)?;
         }
 
         total_docs += count as u64;
@@ -99,16 +110,20 @@ pub async fn run(cli: &super::Cli, args: &CloneArgs) -> Result<()> {
         }
     }
 
-    println!("  ✓ {} documents cloned", total_docs);
+    status!("  ✓ {} documents cloned", total_docs);
 
-    if !cli.raw {
-        let stats = dst_client.index_stats(&args.dest_uid).await?;
-        print_json(&stats, cli.raw);
-    }
-
-    println!(
-        "\nDone. Cloned '{}' → '{}'.",
-        args.source_uid, args.dest_uid
-    );
+    let stats = dst_client.index_stats(&args.dest_uid).await?;
+    let result = json!({
+        "source": { "project": from.name, "indexUid": args.source_uid },
+        "destination": { "project": to.name, "indexUid": args.dest_uid },
+        "documentsCopied": total_docs,
+        "stats": stats,
+    });
+    crate::output::emit(&result, || {
+        format!(
+            "Done. Cloned '{}' → '{}' ({} documents).",
+            args.source_uid, args.dest_uid, total_docs
+        )
+    });
     Ok(())
 }

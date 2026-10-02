@@ -133,5 +133,19 @@ pub async fn run(force: bool) -> Result<()> {
     std::fs::remove_file(&backup_path).ok();
 
     eprintln!("Updated to {}.", release.tag_name);
+
+    // Refresh the user-level agent skill with the new binary's bundled copy.
+    if let Ok(dir) = super::skill::user_skills_dir()
+        && dir.join("msc/SKILL.md").exists()
+    {
+        let refreshed = std::process::Command::new(&current_exe)
+            .args(["skill", "install", "--quiet", "--json"])
+            .stdout(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success());
+        if refreshed {
+            eprintln!("Updated the msc agent skill in {}.", dir.display());
+        }
+    }
     Ok(())
 }

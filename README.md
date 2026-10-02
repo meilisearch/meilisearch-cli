@@ -76,6 +76,9 @@ msc project list
 
 # Target a specific project for one command
 msc --project staging health
+
+# Or skip the config file entirely
+msc --url http://localhost:7700 --api-key masterKey123 health
 ```
 
 ## Commands
@@ -202,10 +205,41 @@ msc stats
 ## Output Formatting
 
 ```bash
-msc search movies "query"              # pretty-printed JSON
-msc --raw search movies "query"        # compact JSON, pipeable
-msc --quiet health                     # errors only
+msc search movies "query"                  # pretty-printed JSON in a terminal
+msc search movies "query" | jq .hits       # compact JSON automatically when piped
+msc --json search movies "query"           # force compact JSON (alias: --raw)
+msc --pretty index list | less             # force human output when piped
+msc search movies "query" --select id,title  # keep only these fields
+msc --quiet import movies --file m.json    # no status messages on stderr
 ```
+
+Results go to stdout; status messages and errors go to stderr. Set `NO_COLOR` to disable colors.
+
+## Using msc from Scripts and AI Agents
+
+`msc` is designed to be driven by programs as well as people:
+
+- **JSON by default when piped.** When stdout is not a terminal, every command prints compact JSON on stdout, and failures print a JSON error on stderr: `{"error": {"kind", "code", "message", "exitCode", "hint", …}}`.
+- **Meaningful exit codes.** `0` ok, `1` error, `2` usage, `3` auth, `4` not found, `5` API error, `6` network, `7` task failed, `8` timeout.
+- **`--wait`** on any write returns the finished task instead of a `taskUid`, and exits `7` if the task failed.
+- **`--select`** keeps only the fields you need (`--select uid,error.code`).
+- **`--dry-run`** previews destructive changes (index/document/key/task deletes, settings update and reset, clone, promote, local reset); **`--if-exists` / `--if-not-exists`** make creates and deletes safe to retry.
+- **No prompts without a terminal.** Commands that would prompt or open a TUI fail fast with exit code `2` and a hint.
+- **Environment config:** `MSC_URL`, `MSC_API_KEY`, `MSC_PROJECT`, `MSC_WAIT`, `MSC_CONFIG`.
+- **`msc schema`** prints every command and argument as JSON.
+- **`msc whoami`** shows which server and key are used, where they came from, and whether they work.
+- **`msc api <METHOD> <PATH>`** calls any route with the same auth, errors and `--wait`; `search --body '<json>'` passes any search parameter.
+- **`msc mcp`** runs an [MCP](https://modelcontextprotocol.io) server exposing every command as a tool: `claude mcp add meilisearch -- msc mcp`.
+- **`msc skill install`** installs the bundled agent skill into `~/.claude/skills` (or `--local` for one repository). Or install everything, the skill plus the MCP server, as a Claude Code plugin: `/plugin marketplace add meilisearch/meilisearch-cli` then `/plugin install meilisearch-cli@meilisearch`.
+
+```bash
+export MSC_URL=http://localhost:7700
+msc index create movies --primary-key id --if-not-exists --wait
+msc import movies --file movies.ndjson
+msc search movies "dune" --select id,title --limit 5
+```
+
+See the [agent guide](docs/agents.md) and the [output & exit codes reference](docs/reference.md#output--exit-codes).
 
 ## Configuration
 
@@ -231,11 +265,13 @@ api_key = "masterKey123"
 # Build
 cargo build
 
-# Run tests (requires Meilisearch on localhost:7700)
+# Run tests (integration tests target MSC_TEST_URL, default http://localhost:7700,
+# and use an isolated config file, so your projects are never touched)
 cargo test
+MSC_TEST_URL=http://localhost:7799 cargo test
 
 # Lint
-cargo clippy -- -D warnings
+cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
