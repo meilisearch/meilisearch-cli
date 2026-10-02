@@ -46,6 +46,9 @@ impl Default for Config {
 
 impl Config {
     pub fn config_path() -> Result<PathBuf> {
+        if let Some(path) = std::env::var_os("MSC_CONFIG").filter(|p| !p.is_empty()) {
+            return Ok(PathBuf::from(path));
+        }
         let config_dir = dirs::config_dir().context("Could not determine config directory")?;
         Ok(config_dir.join("msc").join("config.toml"))
     }
@@ -107,18 +110,21 @@ impl Config {
 
     pub fn get_project<'a>(&'a self, name: Option<&'a str>) -> Result<(&'a str, &'a Project)> {
         let name = name.unwrap_or(&self.default);
-        let project = self.projects.get(name).with_context(|| {
-            format!(
-                "Project '{}' not found. Run `msc project list` to see available projects.",
-                name
-            )
-        })?;
+        let project = self
+            .projects
+            .get(name)
+            .ok_or_else(|| project_not_found(name))?;
         Ok((name, project))
     }
 
     pub fn add_project(&mut self, name: String, project: Project) -> Result<()> {
         if self.projects.contains_key(&name) {
-            bail!("Project '{}' already exists. Remove it first.", name);
+            return Err(crate::error::CliError::usage(
+                "project_exists",
+                format!("Project '{name}' already exists"),
+            )
+            .with_hint("Use --force to overwrite or --if-not-exists to skip")
+            .into());
         }
         self.projects.insert(name, project);
         self.save()
@@ -126,7 +132,7 @@ impl Config {
 
     pub fn update_project(&mut self, name: &str, project: Project) -> Result<()> {
         if !self.projects.contains_key(name) {
-            bail!("Project '{}' not found.", name);
+            return Err(project_not_found(name));
         }
         self.projects.insert(name.to_string(), project);
         self.save()
@@ -140,18 +146,24 @@ impl Config {
             );
         }
         if self.projects.remove(name).is_none() {
-            bail!("Project '{}' not found.", name);
+            return Err(project_not_found(name));
         }
         self.save()
     }
 
     pub fn set_default(&mut self, name: &str) -> Result<()> {
         if !self.projects.contains_key(name) {
-            bail!("Project '{}' not found.", name);
+            return Err(project_not_found(name));
         }
         self.default = name.to_string();
         self.save()
     }
+}
+
+fn project_not_found(name: &str) -> anyhow::Error {
+    crate::error::CliError::usage("project_not_found", format!("Project '{name}' not found"))
+        .with_hint("Run `msc project list` to see available projects, or pass --url")
+        .into()
 }
 
 #[cfg(test)]

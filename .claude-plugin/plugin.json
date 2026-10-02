@@ -1,0 +1,15 @@
+{
+  "name": "meilisearch-cli",
+  "description": "Work with Meilisearch from Claude Code: the msc agent skill plus an MCP server exposing every msc command as a tool. Requires the msc binary on PATH.",
+  "version": "0.5.0",
+  "author": { "name": "Meilisearch" },
+  "homepage": "https://github.com/meilisearch/meilisearch-cli",
+  "repository": "https://github.com/meilisearch/meilisearch-cli",
+  "license": "MIT",
+  "mcpServers": {
+    "meilisearch": {
+      "command": "msc",
+      "args": ["mcp"]
+    }
+  }
+}

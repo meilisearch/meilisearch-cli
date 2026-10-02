@@ -1,0 +1,11 @@
+{
+  "name": "meilisearch",
+  "owner": { "name": "Meilisearch" },
+  "plugins": [
+    {
+      "name": "meilisearch-cli",
+      "source": "./",
+      "description": "msc agent skill and MCP server for Meilisearch"
+    }
+  ]
+}

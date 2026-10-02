@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::Args;
 
+use serde_json::json;
+
 use super::{Cli, build_client, print_json, read_json_input};
+use crate::error::CliError;
 
 #[derive(Args)]
 pub struct SearchArgs {
@@ -42,33 +45,72 @@ pub struct SearchArgs {
     #[arg(long, value_delimiter = ',')]
     pub attributes_to_highlight: Option<Vec<String>>,
 
+    /// Extra search parameters as a JSON object, merged over the flags
+    /// (e.g. '{"hybrid":{"embedder":"default"},"showRankingScore":true}')
+    #[arg(long, value_name = "JSON")]
+    pub body: Option<String>,
+
     /// Interactive TUI mode
     #[arg(short, long)]
     pub interactive: bool,
 }
 
+/// Build the search request from flags, then overlay `--body`.
+fn request_body(args: &SearchArgs) -> Result<serde_json::Value> {
+    let mut body = json!({ "q": args.query.as_deref().unwrap_or("") });
+    let mut set = |k: &str, v: serde_json::Value| {
+        body[k] = v;
+    };
+    if let Some(f) = &args.filter {
+        set("filter", json!(f));
+    }
+    if let Some(f) = &args.facets {
+        set("facets", json!(f));
+    }
+    if let Some(l) = args.limit {
+        set("limit", json!(l));
+    }
+    if let Some(o) = args.offset {
+        set("offset", json!(o));
+    }
+    if let Some(s) = &args.sort {
+        set("sort", json!(s));
+    }
+    if let Some(a) = &args.attributes_to_retrieve {
+        set("attributesToRetrieve", json!(a));
+    }
+    if let Some(a) = &args.attributes_to_highlight {
+        set("attributesToHighlight", json!(a));
+    }
+    if let Some(raw) = &args.body {
+        let extra: serde_json::Value = serde_json::from_str(raw).map_err(|e| {
+            CliError::usage("invalid_json", format!("--body is not valid JSON: {e}"))
+        })?;
+        let Some(extra) = extra.as_object() else {
+            return Err(CliError::usage("invalid_json", "--body must be a JSON object").into());
+        };
+        for (k, v) in extra {
+            body[k] = v.clone();
+        }
+    }
+    Ok(body)
+}
+
 pub async fn run(cli: &Cli, args: &SearchArgs) -> Result<()> {
     if args.interactive {
+        crate::output::require_interactive(
+            "Interactive search (-i)",
+            "Run `msc search <INDEX_UID> <QUERY>` without -i",
+        )?;
         let client = build_client(cli)?;
         return crate::tui::search::run_interactive_search(client, &args.uid).await;
     }
 
     let client = build_client(cli)?;
-    let query = args.query.as_deref().unwrap_or("");
     let result = client
-        .search(
-            &args.uid,
-            query,
-            args.filter.as_deref(),
-            args.facets.as_deref(),
-            args.limit,
-            args.offset,
-            args.sort.as_deref(),
-            args.attributes_to_retrieve.as_deref(),
-            args.attributes_to_highlight.as_deref(),
-        )
+        .search_with_body(&args.uid, &request_body(args)?)
         .await?;
-    print_json(&result, cli.raw);
+    print_json(&result);
     Ok(())
 }
 
@@ -76,7 +118,7 @@ pub async fn run(cli: &Cli, args: &SearchArgs) -> Result<()> {
 
 #[derive(Args)]
 pub struct MultiSearchArgs {
-    /// JSON file containing the queries array (reads from stdin if omitted)
+    /// JSON file with a queries array or a full body ({"queries": [...], "federation": {...}}); reads stdin if omitted
     #[arg(long)]
     pub file: Option<PathBuf>,
 }
@@ -85,7 +127,7 @@ pub async fn run_multi_search(cli: &Cli, args: &MultiSearchArgs) -> Result<()> {
     let client = build_client(cli)?;
     let queries = read_json_input(args.file.as_deref())?;
     let result = client.multi_search(&queries).await?;
-    print_json(&result, cli.raw);
+    print_json(&result);
     Ok(())
 }
 
@@ -119,7 +161,7 @@ pub async fn run_facet_search(cli: &Cli, args: &FacetSearchArgs) -> Result<()> {
             args.filter.as_deref(),
         )
         .await?;
-    print_json(&result, cli.raw);
+    print_json(&result);
     Ok(())
 }
 
@@ -139,16 +181,31 @@ pub struct SimilarArgs {
     #[arg(long)]
     pub limit: Option<u64>,
 
+    /// Result offset
+    #[arg(long)]
+    pub offset: Option<u64>,
+
     /// Filter expression
     #[arg(long)]
     pub filter: Option<String>,
+
+    /// Embedder to use
+    #[arg(long)]
+    pub embedder: Option<String>,
 }
 
 pub async fn run_similar(cli: &Cli, args: &SimilarArgs) -> Result<()> {
     let client = build_client(cli)?;
     let result = client
-        .similar(&args.uid, &args.id, args.limit, args.filter.as_deref())
+        .similar(
+            &args.uid,
+            &args.id,
+            args.limit,
+            args.offset,
+            args.filter.as_deref(),
+            args.embedder.as_deref(),
+        )
         .await?;
-    print_json(&result, cli.raw);
+    print_json(&result);
     Ok(())
 }

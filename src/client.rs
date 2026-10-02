@@ -1,6 +1,8 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde_json::Value;
+
+use crate::error::CliError;
 
 #[derive(Debug, Clone, Default)]
 pub struct TaskFilters {
@@ -74,6 +76,9 @@ impl TaskFilters {
 pub struct MeiliClient {
     pub base_url: String,
     http: reqwest::Client,
+    /// When set, write requests that enqueue a task wait for it (timeout in ms)
+    /// and return the finished task instead of the summarized one.
+    wait: Option<u64>,
 }
 
 #[allow(dead_code)]
@@ -93,7 +98,26 @@ impl MeiliClient {
         Ok(Self {
             base_url: url.trim_end_matches('/').to_string(),
             http,
+            wait: None,
         })
+    }
+
+    /// Wait for enqueued tasks on every write (see [`MeiliClient::wait`]).
+    pub fn with_wait(mut self, timeout_ms: Option<u64>) -> Self {
+        self.wait = timeout_ms;
+        self
+    }
+
+    /// A copy of this client that never auto-waits, for commands that manage
+    /// task waiting themselves.
+    pub fn without_wait(&self) -> Self {
+        let mut c = self.clone();
+        c.wait = None;
+        c
+    }
+
+    pub fn wait_timeout(&self) -> Option<u64> {
+        self.wait
     }
 
     fn url(&self, path: &str) -> String {
@@ -237,8 +261,9 @@ impl MeiliClient {
             .header(CONTENT_TYPE, content_type)
             .body(body)
             .send()
-            .await?;
-        Self::handle_response(resp).await
+            .await
+            .map_err(|e| self.net_err(e))?;
+        self.finish_write(Self::handle_response(resp).await?).await
     }
 
     pub async fn delete_document(&self, uid: &str, doc_id: &str) -> Result<Value> {
@@ -275,12 +300,13 @@ impl MeiliClient {
             .header(CONTENT_TYPE, content_type)
             .body(body)
             .send()
-            .await?;
-        Self::handle_response(resp).await
+            .await
+            .map_err(|e| self.net_err(e))?;
+        self.finish_write(Self::handle_response(resp).await?).await
     }
 
     pub async fn fetch_documents(&self, uid: &str, body: &Value) -> Result<Value> {
-        self.post(&format!("/indexes/{uid}/documents/fetch"), body)
+        self.post_read(&format!("/indexes/{uid}/documents/fetch"), body)
             .await
     }
 
@@ -343,12 +369,25 @@ impl MeiliClient {
         if let Some(a) = attributes_to_highlight {
             body["attributesToHighlight"] = serde_json::json!(a);
         }
-        self.post(&format!("/indexes/{uid}/search"), &body).await
+        self.post_read(&format!("/indexes/{uid}/search"), &body)
+            .await
+    }
+
+    /// Search with a complete request body (`q`, `filter`, `hybrid`, …).
+    pub async fn search_with_body(&self, uid: &str, body: &Value) -> Result<Value> {
+        self.post_read(&format!("/indexes/{uid}/search"), body)
+            .await
     }
 
     pub async fn multi_search(&self, queries: &Value) -> Result<Value> {
-        self.post("/multi-search", &serde_json::json!({ "queries": queries }))
-            .await
+        // Accept either a bare queries array or a full request body
+        // (`{"queries": [...], "federation": {...}}`).
+        let body = if queries.is_object() {
+            queries.clone()
+        } else {
+            serde_json::json!({ "queries": queries })
+        };
+        self.post_read("/multi-search", &body).await
     }
 
     pub async fn facet_search(
@@ -365,7 +404,7 @@ impl MeiliClient {
         if let Some(f) = filter {
             body["filter"] = serde_json::json!(f);
         }
-        self.post(&format!("/indexes/{uid}/facet-search"), &body)
+        self.post_read(&format!("/indexes/{uid}/facet-search"), &body)
             .await
     }
 
@@ -454,12 +493,13 @@ impl MeiliClient {
             .await
     }
 
-    pub async fn stream_logs(&self, target: &str, mode: Option<&str>) -> Result<Value> {
+    /// Open the log stream; the response body is streamed by the caller.
+    pub async fn stream_logs(&self, target: &str, mode: Option<&str>) -> Result<reqwest::Response> {
         let mut body = serde_json::json!({ "target": target });
         if let Some(m) = mode {
             body["mode"] = serde_json::json!(m);
         }
-        self.post("/logs/stream", &body).await
+        self.post_stream("/logs/stream", &body).await
     }
 
     pub async fn stop_log_stream(&self) -> Result<Value> {
@@ -479,11 +519,16 @@ impl MeiliClient {
     // ── Metrics ───────────────────────────────────────────────────
 
     pub async fn get_metrics_raw(&self) -> Result<String> {
-        let resp = self.http.get(self.url("/metrics")).send().await?;
+        let resp = self
+            .http
+            .get(self.url("/metrics"))
+            .send()
+            .await
+            .map_err(|e| self.net_err(e))?;
         let status = resp.status();
         let body = resp.text().await?;
         if !status.is_success() {
-            bail!("HTTP {}: {}", status, body);
+            return Err(CliError::from_api(status.as_u16(), &body).into());
         }
         Ok(body)
     }
@@ -510,27 +555,55 @@ impl MeiliClient {
         self.delete(&format!("/tasks{qs}")).await
     }
 
+    /// Poll a task until it reaches a terminal status (`succeeded`, `failed`
+    /// or `canceled`) and return it. Errors with a timeout error otherwise.
     pub async fn wait_for_task(&self, task_id: u64, timeout_ms: u64) -> Result<Value> {
         let start = std::time::Instant::now();
+        let mut delay = std::time::Duration::from_millis(50);
         loop {
             let task = self.get_task(task_id).await?;
-            let status = task["status"].as_str().unwrap_or("unknown");
-            match status {
-                "succeeded" | "failed" | "canceled" => return Ok(task),
-                _ => {
-                    if start.elapsed().as_millis() as u64 > timeout_ms {
-                        bail!("Task {} timed out after {}ms", task_id, timeout_ms);
-                    }
-                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-                }
+            if is_terminal_status(task["status"].as_str().unwrap_or("")) {
+                return Ok(task);
             }
+            if start.elapsed().as_millis() as u64 > timeout_ms {
+                return Err(CliError::task_timeout(task_id, timeout_ms).into());
+            }
+            tokio::time::sleep(delay).await;
+            delay = (delay * 2).min(std::time::Duration::from_millis(1000));
         }
+    }
+
+    /// Like [`wait_for_task`](Self::wait_for_task) but errors when the task did
+    /// not succeed.
+    pub async fn wait_for_success(&self, task_id: u64, timeout_ms: u64) -> Result<Value> {
+        let task = self.wait_for_task(task_id, timeout_ms).await?;
+        ensure_succeeded(task)
+    }
+
+    /// Apply `--wait` to a write response.
+    async fn finish_write(&self, response: Value) -> Result<Value> {
+        let (Some(timeout), Some(task_uid)) = (self.wait, response["taskUid"].as_u64()) else {
+            return Ok(response);
+        };
+        self.wait_for_success(task_uid, timeout).await
     }
 
     // ── Keys ──────────────────────────────────────────────────────
 
-    pub async fn list_keys(&self) -> Result<Value> {
-        self.get("/keys").await
+    pub async fn list_keys(&self, offset: Option<u64>, limit: Option<u64>) -> Result<Value> {
+        let mut params = vec![];
+        if let Some(o) = offset {
+            params.push(format!("offset={o}"));
+        }
+        if let Some(l) = limit {
+            params.push(format!("limit={l}"));
+        }
+        let qs = if params.is_empty() {
+            String::new()
+        } else {
+            format!("?{}", params.join("&"))
+        };
+        self.get(&format!("/keys{qs}")).await
     }
 
     pub async fn get_key(&self, key: &str) -> Result<Value> {
@@ -612,16 +685,25 @@ impl MeiliClient {
         uid: &str,
         id: &str,
         limit: Option<u64>,
+        offset: Option<u64>,
         filter: Option<&str>,
+        embedder: Option<&str>,
     ) -> Result<Value> {
         let mut body = serde_json::json!({ "id": id });
         if let Some(l) = limit {
             body["limit"] = serde_json::json!(l);
         }
+        if let Some(o) = offset {
+            body["offset"] = serde_json::json!(o);
+        }
+        if let Some(e) = embedder {
+            body["embedder"] = serde_json::json!(e);
+        }
         if let Some(f) = filter {
             body["filter"] = serde_json::json!(f);
         }
-        self.post(&format!("/indexes/{uid}/similar"), &body).await
+        self.post_read(&format!("/indexes/{uid}/similar"), &body)
+            .await
     }
 
     // ── Chat Workspaces & Completions ────────────────────────────
@@ -648,63 +730,130 @@ impl MeiliClient {
         workspace: &str,
         body: &Value,
     ) -> Result<reqwest::Response> {
+        self.post_stream(&format!("/chats/{workspace}/chat/completions"), body)
+            .await
+    }
+
+    /// POST returning the raw response for streaming; non-2xx becomes an error.
+    async fn post_stream(&self, path: &str, body: &Value) -> Result<reqwest::Response> {
         let resp = self
             .http
-            .post(self.url(&format!("/chats/{workspace}/chat/completions")))
+            .post(self.url(path))
             .json(body)
             .send()
-            .await?;
+            .await
+            .map_err(|e| self.net_err(e))?;
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            return Err(CliError::from_api(status.as_u16(), &text).into());
+        }
         Ok(resp)
     }
 
     // ── HTTP primitives ───────────────────────────────────────────
 
-    async fn get(&self, path: &str) -> Result<Value> {
-        let resp = self.http.get(self.url(path)).send().await?;
+    /// Arbitrary API call for `msc api`. Non-JSON responses come back as a
+    /// JSON string. Writes honor `--wait` like every other command.
+    pub async fn request(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        query: &[(String, String)],
+        body: Option<(Vec<u8>, String)>,
+    ) -> Result<Value> {
+        let mut url = reqwest::Url::parse(&self.url(path))
+            .with_context(|| format!("Invalid URL: {}", self.url(path)))?;
+        if !query.is_empty() {
+            url.query_pairs_mut().extend_pairs(query);
+        }
+        let mut req = self.http.request(method.clone(), url);
+        if let Some((bytes, content_type)) = body {
+            req = req.header(CONTENT_TYPE, content_type).body(bytes);
+        }
+        let resp = req.send().await.map_err(|e| self.net_err(e))?;
+        let status = resp.status();
+        let text = resp.text().await?;
+        if !status.is_success() {
+            return Err(CliError::from_api(status.as_u16(), &text).into());
+        }
+        let value = if text.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_str(&text).unwrap_or(Value::String(text))
+        };
+        if method == reqwest::Method::GET {
+            Ok(value)
+        } else {
+            self.finish_write(value).await
+        }
+    }
+
+    fn net_err(&self, err: reqwest::Error) -> anyhow::Error {
+        CliError::network(&self.base_url, &err).into()
+    }
+
+    async fn send(&self, req: reqwest::RequestBuilder) -> Result<Value> {
+        let resp = req.send().await.map_err(|e| self.net_err(e))?;
         Self::handle_response(resp).await
+    }
+
+    async fn get(&self, path: &str) -> Result<Value> {
+        self.send(self.http.get(self.url(path))).await
+    }
+
+    /// POST that does not enqueue a task (search, fetch, …): never waits.
+    async fn post_read(&self, path: &str, body: &Value) -> Result<Value> {
+        self.send(self.http.post(self.url(path)).json(body)).await
     }
 
     async fn post(&self, path: &str, body: &Value) -> Result<Value> {
-        let resp = self.http.post(self.url(path)).json(body).send().await?;
-        Self::handle_response(resp).await
+        let v = self.send(self.http.post(self.url(path)).json(body)).await?;
+        self.finish_write(v).await
     }
 
     async fn put(&self, path: &str, body: &Value) -> Result<Value> {
-        let resp = self.http.put(self.url(path)).json(body).send().await?;
-        Self::handle_response(resp).await
+        let v = self.send(self.http.put(self.url(path)).json(body)).await?;
+        self.finish_write(v).await
     }
 
     async fn patch(&self, path: &str, body: &Value) -> Result<Value> {
-        let resp = self.http.patch(self.url(path)).json(body).send().await?;
-        Self::handle_response(resp).await
+        let v = self
+            .send(self.http.patch(self.url(path)).json(body))
+            .await?;
+        self.finish_write(v).await
     }
 
     async fn delete(&self, path: &str) -> Result<Value> {
-        let resp = self.http.delete(self.url(path)).send().await?;
-        Self::handle_response(resp).await
+        let v = self.send(self.http.delete(self.url(path))).await?;
+        self.finish_write(v).await
     }
 
     async fn handle_response(resp: reqwest::Response) -> Result<Value> {
         let status = resp.status();
         let body = resp.text().await?;
 
-        if body.is_empty() {
-            if status.is_success() {
-                return Ok(Value::Null);
-            }
-            bail!("HTTP {}: (empty response)", status);
-        }
-
-        let json: Value =
-            serde_json::from_str(&body).with_context(|| format!("HTTP {}: {}", status, body))?;
-
         if !status.is_success() {
-            let msg = json["message"].as_str().unwrap_or("Unknown API error");
-            let code = json["code"].as_str().unwrap_or("unknown");
-            bail!("API error ({}): {} [HTTP {}]", code, msg, status);
+            return Err(CliError::from_api(status.as_u16(), &body).into());
         }
+        if body.is_empty() {
+            return Ok(Value::Null);
+        }
+        serde_json::from_str(&body)
+            .with_context(|| format!("Invalid JSON in HTTP {status} response: {body}"))
+    }
+}
 
-        Ok(json)
+pub fn is_terminal_status(status: &str) -> bool {
+    matches!(status, "succeeded" | "failed" | "canceled")
+}
+
+/// Turn a finished task into an error unless it succeeded.
+pub fn ensure_succeeded(task: Value) -> Result<Value> {
+    if task["status"].as_str() == Some("succeeded") {
+        Ok(task)
+    } else {
+        Err(CliError::task_failed(task).into())
     }
 }
 

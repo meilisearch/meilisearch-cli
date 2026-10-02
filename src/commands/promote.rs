@@ -1,8 +1,11 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use clap::Args;
+use serde_json::json;
 
-use crate::client::MeiliClient;
-use crate::config::Config;
+use super::{client_for, print_json, resolve_target};
+use crate::client::ensure_succeeded;
+use crate::error::is_not_found;
+use crate::status;
 
 #[derive(Args)]
 pub struct PromoteArgs {
@@ -27,87 +30,105 @@ pub struct PromoteArgs {
     pub create: bool,
 }
 
-pub async fn run(_cli: &super::Cli, args: &PromoteArgs) -> Result<()> {
-    let config = Config::load()?;
+pub async fn run(cli: &super::Cli, args: &PromoteArgs) -> Result<()> {
+    let from = resolve_target(cli, Some(&args.from))?;
+    let to = resolve_target(cli, Some(&args.to))?;
 
-    let (_, from_proj) = config.get_project(Some(&args.from))?;
-    let (_, to_proj) = config.get_project(Some(&args.to))?;
-
-    let src = MeiliClient::new(&from_proj.url, from_proj.api_key.as_deref())?;
-    let dst = MeiliClient::new(&to_proj.url, to_proj.api_key.as_deref())?;
-
-    println!("Promoting {} → {}", args.from, args.to);
-
-    // Get list of indexes to promote
-    let src_indexes = src.list_indexes(None, Some(1000)).await?;
-    let index_list = src_indexes["results"]
-        .as_array()
-        .context("Failed to list source indexes")?;
+    // This command manages task waiting itself.
+    let src = client_for(cli, &from)?.without_wait();
+    let dst = client_for(cli, &to)?.without_wait();
+    let timeout = cli.wait_timeout;
 
     let uids: Vec<String> = if let Some(filter) = &args.indexes {
         filter.clone()
     } else {
-        index_list
+        let src_indexes = src.list_indexes(None, Some(1000)).await?;
+        src_indexes["results"]
+            .as_array()
+            .context("Failed to list source indexes")?
             .iter()
             .filter_map(|i| i["uid"].as_str().map(String::from))
             .collect()
     };
 
-    if uids.is_empty() {
-        println!("No indexes to promote.");
-        return Ok(());
-    }
-
     if args.dry_run {
-        println!("Dry run — would promote:");
+        let mut plan = vec![];
         for uid in &uids {
             let stats = src.index_stats(uid).await?;
-            let doc_count = stats["numberOfDocuments"].as_u64().unwrap_or(0);
-            println!("  {} ({} docs)", uid, doc_count);
+            let dest_exists = match dst.get_index(uid).await {
+                Ok(_) => true,
+                Err(e) if is_not_found(&e) => false,
+                Err(e) => return Err(e),
+            };
+            plan.push(json!({
+                "indexUid": uid,
+                "numberOfDocuments": stats["numberOfDocuments"],
+                "destinationExists": dest_exists,
+            }));
         }
+        let result = json!({
+            "dryRun": true,
+            "action": "promote",
+            "from": from.name,
+            "to": to.name,
+            "indexes": plan,
+        });
+        crate::output::emit(&result, || {
+            let mut out = format!("Dry run — would promote {} → {}:", from.name, to.name);
+            for p in &plan {
+                out.push_str(&format!(
+                    "\n  {} ({} docs){}",
+                    p["indexUid"].as_str().unwrap_or(""),
+                    p["numberOfDocuments"],
+                    if p["destinationExists"] == true {
+                        ""
+                    } else {
+                        " [new]"
+                    }
+                ));
+            }
+            out
+        });
         return Ok(());
     }
 
+    status!("Promoting {} → {}", from.name, to.name);
+
     let start = std::time::Instant::now();
-    let mut promoted = 0;
+    let mut promoted = vec![];
 
     for uid in &uids {
         let idx_start = std::time::Instant::now();
 
-        // 1. Create destination index if needed
         if args.create {
             let _ = dst.create_index(uid, None).await;
         }
 
-        // 2. Sync settings
         let settings = src.get_settings(uid).await?;
         let task = dst.update_settings(uid, &settings).await?;
         if let Some(task_uid) = task["taskUid"].as_u64() {
-            let result = dst.wait_for_task(task_uid, 60_000).await?;
-            if result["status"].as_str() == Some("failed") {
-                bail!("Settings sync failed for '{}': {:?}", uid, result["error"]);
-            }
+            dst.wait_for_success(task_uid, timeout)
+                .await
+                .with_context(|| format!("Settings sync failed for '{uid}'"))?;
         }
 
-        // 3. Try export route first
+        // Prefer the server-side export route; fall back to paginated copy.
         let export_result = src
-            .export(&serde_json::json!({
+            .export(&json!({
                 "url": dst.base_url,
-                "apiKey": config.get_project(Some(&args.to))?.1.api_key,
+                "apiKey": to.api_key,
                 "indexes": [uid]
             }))
             .await;
 
-        if let Ok(task) = export_result {
-            // Export route available — wait for task
+        let method = if let Ok(task) = export_result {
             if let Some(task_uid) = task["taskUid"].as_u64() {
-                let result = src.wait_for_task(task_uid, 300_000).await?;
-                if result["status"].as_str() == Some("failed") {
-                    bail!("Export failed for '{}': {:?}", uid, result["error"]);
-                }
+                src.wait_for_success(task_uid, timeout)
+                    .await
+                    .with_context(|| format!("Export failed for '{uid}'"))?;
             }
+            "export"
         } else {
-            // Fallback to manual copy via pagination
             let mut offset = 0u64;
             let batch_limit = 1000u64;
             loop {
@@ -119,34 +140,52 @@ pub async fn run(_cli: &super::Cli, args: &PromoteArgs) -> Result<()> {
                 if count == 0 {
                     break;
                 }
-                let docs_array = serde_json::json!(results.unwrap());
+                let docs_array = json!(results.unwrap());
                 let task = dst.add_documents(uid, &docs_array, None).await?;
                 if let Some(task_uid) = task["taskUid"].as_u64() {
-                    dst.wait_for_task(task_uid, 300_000).await?;
+                    ensure_succeeded(dst.wait_for_task(task_uid, timeout).await?)?;
                 }
                 offset += batch_limit;
                 if count < batch_limit as usize {
                     break;
                 }
             }
-        }
+            "copy"
+        };
 
-        // 4. Verify
         let src_stats = src.index_stats(uid).await?;
         let doc_count = src_stats["numberOfDocuments"].as_u64().unwrap_or(0);
         let elapsed = idx_start.elapsed().as_secs_f64();
 
-        println!(
+        status!(
             "  ✓ {:20} {:>8} docs  settings synced  {:.1}s",
-            uid, doc_count, elapsed
+            uid,
+            doc_count,
+            elapsed
         );
-        promoted += 1;
+        promoted.push(json!({
+            "indexUid": uid,
+            "numberOfDocuments": doc_count,
+            "method": method,
+            "seconds": elapsed,
+        }));
     }
 
     let total_elapsed = start.elapsed().as_secs_f64();
-    println!(
-        "\nDone. {} indexes promoted in {:.1}s.",
-        promoted, total_elapsed
-    );
+    let result = json!({
+        "from": from.name,
+        "to": to.name,
+        "indexes": promoted,
+        "seconds": total_elapsed,
+    });
+    if crate::output::is_json() {
+        print_json(&result);
+    } else {
+        println!(
+            "Done. {} indexes promoted in {:.1}s.",
+            promoted.len(),
+            total_elapsed
+        );
+    }
     Ok(())
 }

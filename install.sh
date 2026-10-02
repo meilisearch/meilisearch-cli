@@ -125,6 +125,13 @@ main() {
     # Install shell completions
     install_completions "${INSTALL_DIR}/${BINARY}"
 
+    # Install the agent skill for Claude Code (opt out with MSC_NO_SKILL=1)
+    if [ -d "${HOME}/.claude" ] && [ -z "${MSC_NO_SKILL:-}" ]; then
+        if "${INSTALL_DIR}/${BINARY}" skill install --quiet --json > /dev/null; then
+            echo "Installed the msc agent skill to ~/.claude/skills/msc"
+        fi
+    fi
+
     echo ""
     echo "Run 'msc --help' to get started."
     if [ "$(detect_shell)" = "zsh" ]; then

@@ -11,6 +11,7 @@ pub enum NetworkCommand {
     Get,
     /// Update network configuration (reads JSON from file or stdin)
     Update {
+        /// JSON file (reads stdin if omitted)
         #[arg(long)]
         file: Option<PathBuf>,
     },
@@ -21,12 +22,12 @@ pub async fn run(cli: &Cli, cmd: &NetworkCommand) -> Result<()> {
     match cmd {
         NetworkCommand::Get => {
             let result = client.get_network().await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
         NetworkCommand::Update { file } => {
             let body = read_json_input(file.as_deref())?;
             let result = client.update_network(&body).await?;
-            print_json(&result, cli.raw);
+            print_json(&result);
         }
     }
     Ok(())
