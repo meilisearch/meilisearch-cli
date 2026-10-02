@@ -1357,18 +1357,25 @@ Or in any MCP client configuration:
 
 ### `skill` - Install the agent skill
 
-`msc` bundles an [agent skill](../skills/msc/SKILL.md) that teaches coding agents how to use it: targeting a server, `msc schema`, `--wait`, `--dry-run`, `--select` and exit codes. The skill is compiled into the binary, so it always matches the installed version.
+`msc` bundles agent skills that teach coding agents how to use it. The skills are compiled into the binary, so they always match the installed version.
+
+| Skill | Loads when the task is about |
+|-------|------------------------------|
+| [`msc`](../skills/msc/SKILL.md) | Any Meilisearch work: targeting a server, `msc schema`, `--wait`, `--dry-run`, `--select`, exit codes |
+| [`msc-import`](../skills/msc-import/SKILL.md) | Loading a dataset: primary key choice, settings before data, verifying counts, failed-task fixes |
+| [`msc-relevance`](../skills/msc-relevance/SKILL.md) | Tuning results: a judgment set of queries, ranking score details, one setting at a time, symptom → setting table |
+| [`msc-promote`](../skills/msc-promote/SKILL.md) | Moving indexes between projects: dry run, settings diff, zero-downtime clone-and-swap, verification |
 
 ```bash
-msc skill install            # ~/.claude/skills/msc/SKILL.md (all your projects)
-msc skill install --local    # ./.claude/skills/msc/SKILL.md (this repository only)
+msc skill install            # ~/.claude/skills/<name>/SKILL.md (all your projects)
+msc skill install --local    # ./.claude/skills/<name>/SKILL.md (this repository only)
 msc skill install --dir DIR  # any skills directory, e.g. for another agent
 msc skill list               # bundled skills and where they are installed
-msc skill show               # print SKILL.md
+msc skill show [NAME]        # print a SKILL.md (default: msc)
 msc skill uninstall          # same --local / --dir options
 ```
 
-`install` reports `installed`, `updated` or `unchanged` for each skill and is safe to re-run. `msc self-update` refreshes a skill installed in `~/.claude/skills`, and `install.sh` installs it automatically when `~/.claude` exists (set `MSC_NO_SKILL=1` to skip).
+`install` reports `installed`, `updated` or `unchanged` for each skill and is safe to re-run. `msc self-update` refreshes skills installed in `~/.claude/skills`, and `install.sh` installs it automatically when `~/.claude` exists (set `MSC_NO_SKILL=1` to skip).
 
 ### Claude Code plugin
 

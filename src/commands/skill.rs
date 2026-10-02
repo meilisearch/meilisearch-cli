@@ -12,7 +12,21 @@ use crate::error::CliError;
 use crate::output::emit;
 
 /// Skills shipped with the CLI: (name, SKILL.md contents).
-const SKILLS: &[(&str, &str)] = &[("msc", include_str!("../../skills/msc/SKILL.md"))];
+const SKILLS: &[(&str, &str)] = &[
+    ("msc", include_str!("../../skills/msc/SKILL.md")),
+    (
+        "msc-import",
+        include_str!("../../skills/msc-import/SKILL.md"),
+    ),
+    (
+        "msc-relevance",
+        include_str!("../../skills/msc-relevance/SKILL.md"),
+    ),
+    (
+        "msc-promote",
+        include_str!("../../skills/msc-promote/SKILL.md"),
+    ),
+];
 
 #[derive(Subcommand)]
 pub enum SkillCommand {

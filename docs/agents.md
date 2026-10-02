@@ -189,10 +189,10 @@ Load it once instead of running `--help` for each command.
 
 ## Agent skill and Claude Code plugin
 
-The `msc` skill is a short playbook that agents load when a task involves Meilisearch. It is bundled in the binary:
+Skills are short playbooks an agent loads when a task calls for them. Four are bundled in the binary: `msc` (general use), `msc-import` (loading data), `msc-relevance` (tuning results) and `msc-promote` (moving indexes between projects).
 
 ```bash
-msc skill install          # ~/.claude/skills/msc (or --local, or --dir <skills dir>)
+msc skill install          # ~/.claude/skills/msc* (or --local, or --dir <skills dir>)
 ```
 
 Or install the skill and the MCP server below in one step as a Claude Code plugin:

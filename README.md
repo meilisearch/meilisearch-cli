@@ -230,7 +230,7 @@ Results go to stdout; status messages and errors go to stderr. Set `NO_COLOR` to
 - **`msc whoami`** shows which server and key are used, where they came from, and whether they work.
 - **`msc api <METHOD> <PATH>`** calls any route with the same auth, errors and `--wait`; `search --body '<json>'` passes any search parameter.
 - **`msc mcp`** runs an [MCP](https://modelcontextprotocol.io) server exposing every command as a tool: `claude mcp add meilisearch -- msc mcp`.
-- **`msc skill install`** installs the bundled agent skill into `~/.claude/skills` (or `--local` for one repository). Or install everything, the skill plus the MCP server, as a Claude Code plugin: `/plugin marketplace add meilisearch/meilisearch-cli` then `/plugin install meilisearch-cli@meilisearch`.
+- **`msc skill install`** installs the bundled agent skills into `~/.claude/skills` (or `--local` for one repository): `msc` for general use, plus `msc-import`, `msc-relevance` and `msc-promote` playbooks. Or install everything, the skills plus the MCP server, as a Claude Code plugin: `/plugin marketplace add meilisearch/meilisearch-cli` then `/plugin install meilisearch-cli@meilisearch`.
 
 ```bash
 export MSC_URL=http://localhost:7700

@@ -19,8 +19,8 @@
 - **`--table` now renders tables.** Lists become rows and single objects become key/value rows. The flag was previously accepted but ignored.
 - **`msc schema`**: prints the full command tree (arguments, types, defaults, env vars, exit codes) as JSON.
 - **`msc mcp`**: a Model Context Protocol server over stdio exposing every command as a tool, with `--read-only` and `--tools` filters.
-- **Agent skill bundled in the binary**: `msc skill install` writes it to `~/.claude/skills/msc` (`--local` for `./.claude/skills`, `--dir` for any agent), alongside `skill list`, `skill show` and `skill uninstall`. `install.sh` installs it when `~/.claude` exists, and `self-update` keeps it current.
-- **Claude Code plugin**: the repository is a plugin marketplace. `/plugin marketplace add meilisearch/meilisearch-cli` then `/plugin install meilisearch-cli@meilisearch` installs the skill and the MCP server together.
+- **Agent skills bundled in the binary**: `msc` (general use), `msc-import` (loading datasets), `msc-relevance` (tuning results against a judgment set) and `msc-promote` (moving indexes between projects, including zero-downtime clone-and-swap). `msc skill install` writes them to `~/.claude/skills` (`--local` for `./.claude/skills`, `--dir` for any agent), alongside `skill list`, `skill show` and `skill uninstall`. `install.sh` installs them when `~/.claude` exists, and `self-update` keeps them current.
+- **Claude Code plugin**: the repository is a plugin marketplace. `/plugin marketplace add meilisearch/meilisearch-cli` then `/plugin install meilisearch-cli@meilisearch` installs the skills and the MCP server together.
 - **`--format json|ndjson|csv`** on `document add`, `document update` and `import`, for NDJSON and CSV on stdin.
 - **`import --no-wait`** to return once batches are enqueued, and **`import --events`** for NDJSON progress events.
 - **`chat --events`** for NDJSON answer events; non-interactive `chat` in JSON mode returns `{answer, sources, model, workspace}`, including the documents used as sources.
